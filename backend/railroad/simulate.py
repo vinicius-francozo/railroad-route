@@ -24,13 +24,18 @@ rules says what arriving at it would mean, and ending there would look like a fi
 
 ## Why no level can reach a loop or the start, and why both are still handled
 
-Every piece links its sides in pairs (a straight or curve one pair, a cross two), and a switch
-is only ever entered through `entry`. So each (cell, side entered) has at most one state that
-leads to it, and a run that came back to a state would have to come back through the state
-before the first cell, which is the start, which is a derail. With today's pieces a cart can
-neither loop nor reach the start. Both checks stay because they are what makes the walk end
-whatever the board holds: a passive junction (out of scope in v1) is all it takes to make a
-loop real, and `_through` has no answer for a cart inside a start.
+Every piece is reversible: it links its sides in pairs (a straight or curve one pair, a cross
+two), and a cart that comes in through one side of a pair leaves through the other, whichever
+side it is. In a run, a switch links its `entry` with the one exit its answer chose, and its
+exit is never its entry (`models.py` refuses that). So the sides a run can use are chained into
+strands, each side on at most one, and the cart always rides its strand forward: nothing sends
+it back out through the side it came in by. The start opens on one side only, so it is the end
+of its strand, and entering it through that side would mean riding the strand back the way the
+cart came, a half-turn that no piece and no switch makes. A strand with an end is not a ring,
+so the cart cannot come back to a (cell, side) it already entered either: with today's pieces
+a run can neither loop nor reach the start. Both checks stay because they are what makes the
+walk end whatever the board holds: a passive junction (out of scope in v1) is all it takes to
+make a loop real, and `_through` has no answer for a cart inside a start.
 
 ## Switches
 
