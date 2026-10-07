@@ -715,14 +715,46 @@ class DownStore:
 
     async def take_quota(self, ip: str) -> QuotaResult:
         self._check("take_quota")
+        self.quota_ips.append(ip)
         return await self.inner.take_quota(ip)
 
 
-@pytest.mark.parametrize("broken", ["get_cached", "take_quota", "put_cached"])
-def test_storage_down(make_harness: Callable[..., Harness], broken: str) -> None:
+@pytest.mark.parametrize("broken", ["get_cached", "take_quota"])
+def test_storage_down_stops_a_free_run(make_harness: Callable[..., Harness], broken: str) -> None:
     h = make_harness(store=DownStore(broken))
 
     assert error(h.run()) == (502, "jev_unavailable")
+    assert h.jev.calls == []
+
+
+def test_a_cache_that_cannot_be_read_is_a_miss_with_the_visitors_key(
+    make_harness: Callable[..., Harness],
+) -> None:
+    h = make_harness(store=DownStore("get_cached"))
+
+    response = h.run(headers={"x-typesafe-key": BYOK})
+
+    assert response.status_code == 200
+    assert response.json()["cached"] is False
+    assert response.json()["quota"] == {"remaining": None, "byok": True}
+    assert len(h.jev.calls) == 1
+    assert h.jev.calls[0].headers["authorization"] == f"Bearer {BYOK}"
+    assert h.store.quota_ips == []
+
+
+def test_an_answer_the_store_cannot_keep_is_still_served(
+    make_harness: Callable[..., Harness],
+) -> None:
+    h = make_harness(store=DownStore("put_cached"))
+
+    response = h.run()
+
+    assert response.status_code == 200
+    assert response.json()["cached"] is False
+    assert response.json()["quota"] == {"remaining": 9, "byok": False}
+    assert response.json()["outcome"] == "arrived"
+    assert len(h.store.quota_ips) == 1
+    assert len(h.jev.calls) == 1
 
 
 # --- Nothing written down ---------------------------------------------------------------------

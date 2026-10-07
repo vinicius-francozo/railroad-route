@@ -26,6 +26,12 @@ Taboo terms or counts, never the sentence, and `InvalidBoard.detail` names a cel
   call that reached Jev was a call the server's key paid for.
 - **A cached answer the engine refuses is a miss, not an answer.** It is asked again, and the
   new answer overwrites the entry.
+- **A cache that cannot be read is a miss only with the visitor's key.** That run goes on to Jev
+  on the visitor's key, which needs nothing from the store. Without it the run stops at 502:
+  the quota lives in the same store, and a free run cannot be counted without it.
+- **An answer the store cannot keep is still served.** The quota is spent and Jev has answered;
+  failing the run there would spend both again on every retry. The write is lost, and the next
+  run of the same sentence asks Jev again.
 """
 
 from __future__ import annotations
@@ -239,7 +245,10 @@ def create_app(
         try:
             cached = await the_store.get_cached(cache_ids[level.id], run.sentence)
         except StoreUnavailable:
-            return _error(502, "jev_unavailable", _STORE_UNAVAILABLE)
+            # The visitor's key needs nothing more from the store; a free run needs its quota.
+            if not byok:
+                return _error(502, "jev_unavailable", _STORE_UNAVAILABLE)
+            cached = None
         if cached is not None:
             from_cache = _simulate(level, board, cached)
             if from_cache is not None:
@@ -276,10 +285,10 @@ def create_app(
         if sim is None:
             # Not cached: an answer the engine cannot use must not be served again.
             return _error(502, "jev_unusable", _JEV_UNUSABLE)
-        try:
+        # The answer is paid for and good: a store that cannot keep it loses the write, not
+        # the run.
+        with contextlib.suppress(StoreUnavailable):
             await the_store.put_cached(cache_ids[level.id], run.sentence, answers)
-        except StoreUnavailable:
-            return _error(502, "jev_unavailable", _STORE_UNAVAILABLE)
         return _finish(level, board, sim, the_tuning, cached=False, quota=quota)
 
     return app
