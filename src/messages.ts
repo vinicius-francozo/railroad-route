@@ -36,6 +36,7 @@ export const UI_TEXT = {
   noSwitches: 'No switches on this level: the track alone decides.',
   sentenceLabel: 'The cart’s note',
   sentencePlaceholder: 'One sentence, in any language',
+  globalTabooSummary: 'Command words and numbers are forbidden too',
   send: 'Send the cart',
   sending: 'Rolling…',
 
@@ -91,8 +92,54 @@ export function levelRules(maxWords: number, par: number): string {
   return `Up to ${String(maxWords)} words in the note. Par: ${String(par)} ${par === 1 ? 'piece' : 'pieces'} from the crate.`;
 }
 
+/**
+ * The forbidden terms of every level, copied from the map (`mapa.md` §3, the
+ * list as revised on 2026-10-07), in its order.
+ *
+ * The level files carry one `taboo` list, the level's own terms followed by
+ * these, because the backend reads the data and has no list of its own. The
+ * page keeps a copy only to fold these away under the level's own terms. If
+ * this copy and the data ever differ, nothing is let through, since the
+ * warning and the backend read the level's list: at worst a term of this list
+ * shows in the visible line.
+ */
+export const GLOBAL_TABOO: readonly string[] = [
+  'option', 'choice', 'choos', 'pick', 'select', 'answer', 'exit', 'first', 'second', 'third', 'last', 'middle',
+  'bottom', 'left', 'right', 'yes', 'ignor', 'criteri', 'true', 'false', 'verdad', 'fals', 'zero', 'two', 'three',
+  'opç', 'escolh', 'selecion', 'respond', 'respost', 'saída', 'primeir', 'segund', 'terceir', 'últim', 'meio',
+  'esquerd', 'direit', 'sim', 'dois', 'três', 'tres',
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+];
+
+/**
+ * A level's `taboo` list, split into the level's own terms and the global ones.
+ *
+ * The global part is the longest tail of the list that follows `GLOBAL_TABOO`
+ * in its order, so a level's own term that is global too ("second" on The
+ * Scale, listed among the level's terms) stays with the level's terms.
+ */
+export function splitTaboo(terms: readonly string[]): { readonly own: string[]; readonly global: string[] } {
+  let start = terms.length;
+  let next = GLOBAL_TABOO.length;
+  while (start > 0) {
+    const term = (terms[start - 1] ?? '').normalize('NFC');
+    let at = next - 1;
+    while (at >= 0 && GLOBAL_TABOO[at]?.normalize('NFC') !== term) at -= 1;
+    if (at < 0) break;
+    next = at;
+    start -= 1;
+  }
+  return { own: terms.slice(0, start), global: terms.slice(start) };
+}
+
+/** The level's own forbidden terms, the ones shown in full. */
 export function tabooLine(terms: readonly string[]): string {
-  return terms.length === 0 ? 'No forbidden words on this level.' : `Forbidden words: ${terms.join(', ')}.`;
+  return terms.length === 0 ? 'This level adds no forbidden words of its own.' : `Forbidden words: ${terms.join(', ')}.`;
+}
+
+/** The global forbidden terms, inside the folded block. */
+export function globalTabooLine(terms: readonly string[]): string {
+  return `${terms.join(', ')}.`;
 }
 
 /** The word counter under the note. */

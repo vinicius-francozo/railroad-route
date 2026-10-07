@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { PublicLevel, RunRequest, RunResponse } from './contract';
-import { UI_TEXT } from './messages';
+import { GLOBAL_TABOO, UI_TEXT } from './messages';
 import { mount, mountApp } from './mount';
 import type { AppServices } from './mount';
 import { STARS_ITEM } from './progress';
@@ -469,6 +469,30 @@ describe('loading the levels', () => {
     expect(app.art(3, 1)).toContain('--rr-art-junction-W-ES');
     expect(app.art(3, 1)).toContain('--rr-art-device-choice');
     expect(app.art(4, 1)).toContain('--rr-art-mine-0');
+  });
+
+  it('lists the level’s own forbidden words, and folds the global ones away, closed', async () => {
+    const app = mountHarness({ levels: [{ ...FIRST, taboo: ['gold', 'ouro', ...GLOBAL_TABOO] }] });
+    await settle();
+    expect(byId(app.root, 'rr-sentence-taboo').textContent).toBe('Forbidden words: gold, ouro.');
+    const folded = descendants(app.root).filter((node) => node.tagName === 'details');
+    expect(folded).toHaveLength(1);
+    const [block] = folded;
+    expect(block?.hidden).toBe(false);
+    expect(block?.attributes.has('open')).toBe(false);
+    expect((block as unknown as { open?: boolean }).open).not.toBe(true);
+    expect(block?.children[0]?.tagName).toBe('summary');
+    expect(block?.children[0]?.textContent).toBe(UI_TEXT.globalTabooSummary);
+    expect(shownText(block!)).toContain(`${GLOBAL_TABOO.join(', ')}.`);
+    // Folded away, and still warned about as the note is typed.
+    app.type('the first nuggets');
+    expect(app.text()).toContain('It uses a forbidden word: first.');
+  });
+
+  it('has no folded block on a level whose list has no global terms', async () => {
+    const app = mountHarness();
+    await settle();
+    expect(descendants(app.root).find((node) => node.tagName === 'details')?.hidden).toBe(true);
   });
 
   it('opens on the first level not yet finished', async () => {

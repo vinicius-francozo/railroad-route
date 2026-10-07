@@ -8,10 +8,13 @@ import {
   describeRunError,
   describeSquare,
   exitLines,
+  GLOBAL_TABOO,
   levelOption,
   noteWarning,
+  splitTaboo,
   starMarks,
   switchLetter,
+  tabooLine,
 } from './messages';
 
 const SCALE: Switch = {
@@ -54,6 +57,37 @@ describe('the switches, as the player reads them', () => {
     expect(describeSquare({ kind: 'switch', switch: SCALE }, 2, 2, 'C')).toBe(
       'Switch C, scale: How urgent is the delivery?, row 3, column 3',
     );
+  });
+});
+
+describe('the forbidden words, as the player reads them', () => {
+  it('copies the global list as the map revised it: no "top", the numbers in words and the digits', () => {
+    expect(GLOBAL_TABOO).not.toContain('top');
+    expect(GLOBAL_TABOO).toEqual(expect.arrayContaining(['true', 'false', 'verdad', 'fals', 'zero', 'two', 'three', 'dois', 'três', 'tres']));
+    expect(GLOBAL_TABOO.slice(-10)).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
+  });
+
+  it('sets the global terms apart from the level’s own', () => {
+    expect(splitTaboo(['coal', 'carvão', ...GLOBAL_TABOO])).toEqual({ own: ['coal', 'carvão'], global: [...GLOBAL_TABOO] });
+    expect(splitTaboo(GLOBAL_TABOO.map((term) => term.normalize('NFD'))).own).toEqual([]);
+  });
+
+  it('keeps a global term that the level lists as its own with the level’s terms', () => {
+    const scale = ['rush', 'second', 'wait', ...GLOBAL_TABOO.filter((term) => term !== 'second')];
+    expect(splitTaboo(scale)).toEqual({ own: ['rush', 'second', 'wait'], global: GLOBAL_TABOO.filter((term) => term !== 'second') });
+  });
+
+  it('shows a list with no global tail in full', () => {
+    expect(splitTaboo(['gold', 'ouro'])).toEqual({ own: ['gold', 'ouro'], global: [] });
+  });
+
+  it('at worst shows a global term in the visible line when the data and the copy disagree', () => {
+    const drifted = ['coal', ...GLOBAL_TABOO.slice(0, 5), 'top', ...GLOBAL_TABOO.slice(5)];
+    expect(splitTaboo(drifted)).toEqual({ own: ['coal', ...GLOBAL_TABOO.slice(0, 5), 'top'], global: GLOBAL_TABOO.slice(5) });
+  });
+
+  it('does not say a level forbids nothing when it only has the global terms', () => {
+    expect(tabooLine([])).not.toContain('No forbidden words');
   });
 });
 

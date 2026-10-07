@@ -174,6 +174,10 @@ const FORM = `
 .rr-exits strong { color: var(--gold-hi); }
 .rr-exit-side { color: var(--ink-dim); white-space: nowrap; }
 .rr-taboo { margin-bottom: clamp(8px, 1.5vh, 16px); }
+.rr-taboo:has(+ .rr-taboo-global:not([hidden])) { margin-bottom: var(--s1); }
+.rr-taboo-global { margin-bottom: clamp(8px, 1.5vh, 16px); }
+.rr-taboo-global summary { width: fit-content; cursor: pointer; }
+.rr-taboo-global p { margin: var(--s1) 0 0; }
 
 /* under the scrolling form: the note, the button, the failure */
 .rr-plan-foot { flex: none; padding-top: clamp(8px, 1.4vh, 12px); border-top: 2px solid #ffffff10; }

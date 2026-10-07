@@ -29,10 +29,12 @@ import {
   describeRunError,
   describeSquare,
   exitLines,
+  globalTabooLine,
   levelOption,
   levelRules,
   noteWarning,
   starMarks,
+  splitTaboo,
   starWords,
   switchKind,
   switchLetter,
@@ -216,6 +218,15 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   // the note's field, and the note still points at them.
   const taboo = make('p', 'rr-note rr-taboo');
   taboo.id = 'rr-sentence-taboo';
+  // The terms every level forbids, command words and numbers, are folded away
+  // under the level's own, closed: the warning under the note names any of
+  // them the note uses, as it is typed.
+  const globalTaboo = make('details', 'rr-note rr-taboo-global');
+  const globalSummary = make('summary');
+  globalSummary.textContent = UI_TEXT.globalTabooSummary;
+  const globalTerms = make('p');
+  globalTaboo.append(globalSummary, globalTerms);
+  globalTaboo.hidden = true;
 
   const switchesBlock = make('div', 'rr-switches');
   const switchesHeading = make('h3');
@@ -276,7 +287,7 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   planBody.tabIndex = 0;
   planBody.setAttribute('role', 'region');
   planBody.setAttribute('aria-label', UI_TEXT.planBodyLabel);
-  planBody.append(planTitle, levelField, switchesBlock, taboo, keyField);
+  planBody.append(planTitle, levelField, switchesBlock, taboo, globalTaboo, keyField);
   // The note, the button and the failure stay under the scrolling part, so the
   // note the puzzle is about and the one thing to press are never scrolled out
   // of reach, however many switches the level lists.
@@ -607,7 +618,10 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     levelPicker.value = level.id;
     trackTitle.textContent = level.name;
     levelNote.textContent = levelRules(level.max_words, level.par_pieces);
-    taboo.textContent = tabooLine(level.taboo);
+    const forbidden = splitTaboo(level.taboo);
+    taboo.textContent = tabooLine(forbidden.own);
+    globalTerms.textContent = globalTabooLine(forbidden.global);
+    globalTaboo.hidden = forbidden.global.length === 0;
     empty.hidden = true;
     // The last run belongs to the board it ran on: its cart, trail, readings
     // and failure do not come along to a new level.
