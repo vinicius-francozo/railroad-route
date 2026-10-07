@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import firstSwitch from '../levels/1.json';
+import forbiddenWords from '../levels/2.json';
 import type { PublicLevel } from './contract';
 import {
   countWords,
@@ -211,11 +213,40 @@ describe('counting words the way the backend does', () => {
     expect(countWords('a heavy load of 3 crates')).toBe(6);
   });
 
-  it('splits at apostrophes, hyphens and underscores', () => {
-    expect(countWords("don't")).toBe(2);
+  it('splits at hyphens and underscores', () => {
     expect(countWords('well-known')).toBe(2);
     expect(countWords('snake_case')).toBe(2);
     expect(countWords('...!?')).toBe(0);
+  });
+
+  it('joins a word at an apostrophe between letters or digits', () => {
+    expect(countWords("generator's")).toBe(1);
+    expect(countWords("don't")).toBe(1);
+    expect(countWords("d'ouro")).toBe(1);
+    expect(countWords('rock’n’roll')).toBe(1);
+    expect(words("don't stop")).toEqual(["don't", 'stop']);
+    expect(words('donʼt')).toEqual(['donʼt']);
+    expect(words("the 90's")).toEqual(['the', "90's"]);
+    expect(words("D'OURO")).toEqual(["d'ouro"]);
+    expect(words("don\u200b't")).toEqual(["don't"]);
+  });
+
+  it('leaves out an apostrophe at the start or the end, doubled, or alone', () => {
+    expect(countWords("miners'")).toBe(1);
+    expect(countWords("'tis")).toBe(1);
+    expect(words('’tis the miners’')).toEqual(['tis', 'the', 'miners']);
+    expect(words('ʼtis')).toEqual(['tis']);
+    expect(countWords("it ' s")).toBe(2);
+    expect(words("it''s")).toEqual(['it', 's']);
+    expect(words("rock-'n'-roll")).toEqual(['rock', 'n', 'roll']);
+    expect(countWords("'")).toBe(0);
+    expect(countWords('ʼ')).toBe(0);
+  });
+
+  it('fits a sentence with apostrophes at the word limit by the same count', () => {
+    const limit = { ...LEVEL, max_words: 5 };
+    expect(countWords("the generator's room isn’t warm")).toBe(limit.max_words);
+    expect(countWords("the generator's room isn’t warm today")).toBe(limit.max_words + 1);
   });
 
   it('keeps an accented word whole, in any script', () => {
@@ -279,6 +310,39 @@ describe('spotting forbidden words', () => {
     expect(tabooHits(LEVEL, 'go\u00adld')).toEqual(['gold']);
     expect(tabooHits(LEVEL, 'O\ufe0fURO')).toEqual(['ouro']);
     expect(tabooHits(LEVEL, 'dou\u0903rado')).toEqual(['dourad']);
+  });
+
+  it('checks a word with apostrophes piece by piece, and whole without them', () => {
+    expect(tabooHits(LEVEL, "barras d'ouro")).toEqual(['ouro']);
+    expect(tabooHits(LEVEL, "the gold's glint")).toEqual(['gold']);
+    expect(tabooHits(LEVEL, 'GOLD’S')).toEqual(['gold']);
+    expect(tabooHits(LEVEL, 'o dʼourado')).toEqual(['dourad']);
+    expect(tabooHits(LEVEL, "go'ld")).toEqual(['gold']);
+    expect(tabooHits(LEVEL, 'go’ld')).toEqual(['gold']);
+    expect(tabooHits(LEVEL, 'goʼld')).toEqual(['gold']);
+    expect(tabooHits(LEVEL, "o'u'r'o")).toEqual(['ouro']);
+    expect(tabooHits(LEVEL, "'gold")).toEqual(['gold']);
+    expect(tabooHits(LEVEL, 'ʼgold')).toEqual(['gold']);
+  });
+
+  it('blocks no apostrophe word that no term starts', () => {
+    expect(tabooHits(LEVEL, "the miner's lamp, it's late")).toEqual([]);
+    expect(tabooHits(LEVEL, "marigold's")).toEqual([]);
+    expect(tabooHits(LEVEL, "l'or o'clock")).toEqual([]);
+  });
+
+  it('takes the apostrophes out of a term too, and a term of nothing blocks nothing', () => {
+    const level = { ...LEVEL, taboo: ['dʼouro', 'ʼ'] };
+    expect(tabooHits(level, "d'ouro")).toEqual(['dʼouro']);
+    expect(tabooHits(level, 'd’ouro')).toEqual(['dʼouro']);
+    expect(tabooHits(level, 'douro')).toEqual(['dʼouro']);
+    expect(tabooHits(level, 'donʼt stop')).toEqual([]);
+  });
+
+  it('reads the real levels’ apostrophes as the backend does', () => {
+    expect(tabooHits({ ...LEVEL, taboo: firstSwitch.taboo }, "the generator's room")).toEqual([]);
+    expect(tabooHits({ ...LEVEL, taboo: forbiddenWords.taboo }, "barras d'ouro")).toEqual(['ouro']);
+    expect(tabooHits({ ...LEVEL, taboo: forbiddenWords.taboo }, "gold's glint")).toEqual(['gold']);
   });
 
   it('says nothing about a clean sentence', () => {
