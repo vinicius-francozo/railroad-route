@@ -2,10 +2,17 @@
 
 ## What a word is
 
-A word is a run of letters and digits, as Unicode counts them. Everything else separates words:
-spaces, punctuation, hyphens, apostrophes. So `don't` is two words, `don` and `t`, and
-`gold-ish` is `gold` and `ish`. The same definition counts words for `max_words` and finds them
-for the Taboo, so the two rules can never disagree about what the player wrote.
+A word is a run of letters and digits, as Unicode counts them, and an apostrophe joins two such
+runs into one word. Everything else separates words: spaces, punctuation, hyphens. So
+`generator's`, `don't`, `d'ouro` and `rock'n'roll` are one word each, while `gold-ish` is `gold`
+and `ish`. The apostrophes are three: the ASCII one (U+0027), the right single quotation mark
+(U+2019) and the modifier letter apostrophe (U+02BC), and one joins only when it stands between
+a letter or digit on each side: at the start or the end of a word (`'tis`, `miners'`), doubled
+(`it''s`) or alone between blanks (`it ' s`) it separates, like any other punctuation, and is no
+part of a word. The modifier letter apostrophe is a letter to Unicode (category `Lm`), and is
+taken out of the letters here so it behaves like the other two. The same definition counts
+words for `max_words` and finds them for the Taboo, so the two rules can never disagree about
+what the player wrote.
 
 Invisible characters are removed before the sentence is split: every formatting character
 (Unicode category `Cf`: the soft hyphen, the zero-width space, the word joiner and the like) and
@@ -13,7 +20,9 @@ every other code point Unicode marks Default_Ignorable_Code_Point (variation sel
 combining grapheme joiner, the Hangul fillers and the like). So they can neither split a word
 nor hide one from the Taboo: `go`, a zero-width space or a variation selector, and `ld` are the
 one word `gold`. Marks of every kind (category `M`) go too, when the sentence is folded below.
-All of this is for finding words only; `too_long` still counts every character the player sent.
+None of the three apostrophes is in either set, nor is it a mark, so all of them survive to the
+split. All of this is for finding words only; `too_long` still counts every character the
+player sent.
 
 ## How the Taboo compares
 
@@ -22,6 +31,17 @@ Both the sentence and the level's terms are folded the same way before they meet
 `Ouro`, `óuro` and `OURO` written in mathematical bold letters are then one word, and `dourad`
 reaches `Dourado`. A term blocks every word that *starts* with it, because a list of whole
 words would be beaten by the first plural or suffix (`golden`, `ourives`).
+
+A word with apostrophes in it is compared in several forms, and a term blocks it if it starts
+any of them: the whole word with its apostrophes taken out (`d'ouro` as `douro`, `don't` as
+`dont`), and each piece between apostrophes (`d` and `ouro`). The pieces keep every word the
+Taboo blocked when an apostrophe still split words (`d'ouro` stays blocked by `ouro`, `gold's`
+by `gold`), and the whole word closes the gap an apostrophe dropped inside a forbidden word
+would open (`go'ld` is blocked by `gold`). Every form is something the player wrote, either a
+piece or the word read without its apostrophes, so a term still has to start one of them: an
+apostrophe blocks only what a space, or nothing, in its place would block. The term is folded with
+its apostrophes taken out too, so the three apostrophes are one to the Taboo, and a term that
+folds to nothing blocks nothing.
 
 ## What a refusal says
 
@@ -39,10 +59,16 @@ from railroad.models import Level, RuleViolation
 
 MAX_CHARACTERS = 200
 
-# `\w` without the underscore: letters and digits in any script. Marks and invisible characters
-# are already gone by the time this runs, so a word is not split at an accent or at a variation
-# selector.
-_WORD = re.compile(r"[^\W_]+")
+# The apostrophes that join a word: ASCII, the right single quotation mark, and the modifier
+# letter apostrophe.
+APOSTROPHES = "'\u2019\u02bc"
+_APOSTROPHE = re.compile(f"[{APOSTROPHES}]")
+# `\w` without the underscore and the apostrophes: letters and digits in any script. Marks and
+# invisible characters are already gone by the time this runs, so a word is not split at an
+# accent or at a variation selector. A word is a run of them, and further runs each after one
+# apostrophe.
+_LETTERS = f"[^\\W_{APOSTROPHES}]+"
+_WORD = re.compile(f"{_LETTERS}(?:[{APOSTROPHES}]{_LETTERS})*")
 
 # The code points with the Default_Ignorable_Code_Point property, one pair per line of
 # DerivedCoreProperties-15.0.0.txt (https://www.unicode.org/Public/15.0.0/ucd/
@@ -98,9 +124,27 @@ def fold(text: str) -> str:
 
 
 def words(sentence: str) -> list[str]:
-    """The words of `sentence`, folded, once its invisible characters are gone."""
+    """The words of `sentence`, folded, once its invisible characters are gone.
+
+    A word keeps the apostrophes inside it as they were typed: `don't` stays `don't`.
+    """
     visible = "".join(ch for ch in sentence if unicodedata.category(ch) != "Cf")
     return _WORD.findall(fold(_IGNORABLE.sub("", visible)))
+
+
+def _taboo_key(term: str) -> str:
+    """`term` as the Taboo compares it: folded, with its apostrophes taken out."""
+    return _APOSTROPHE.sub("", fold(term))
+
+
+def _taboo_forms(word: str) -> list[str]:
+    """The forms of a found `word` a term is checked against: whole, and piece by piece.
+
+    A word without an apostrophe is its one form. One with apostrophes is the whole word with
+    them taken out, then each piece between them: `d'ouro` is `douro`, `d` and `ouro`.
+    """
+    pieces = _APOSTROPHE.split(word)
+    return ["".join(pieces), *pieces] if len(pieces) > 1 else pieces
 
 
 def check_sentence(level: Level, sentence: str) -> None:
@@ -124,6 +168,11 @@ def check_sentence(level: Level, sentence: str) -> None:
             "too_many_words",
             f"the sentence has {len(found)} words and this level allows {level.max_words}",
         )
-    hit = [term for term in level.taboo if any(w.startswith(fold(term)) for w in found)]
+    forms = [form for w in found for form in _taboo_forms(w)]
+    hit = [
+        term
+        for term in level.taboo
+        if (key := _taboo_key(term)) and any(form.startswith(key) for form in forms)
+    ]
     if hit:
         raise RuleViolation("taboo", f"forbidden on this level: {', '.join(hit)}")

@@ -179,12 +179,23 @@ export function runRequest(game: Game, sentence: string): RunRequest {
 // - the sentence is then folded: decomposed (NFKD), case taken out, decomposed
 //   again and stripped of every mark (category `M`: Mn, Mc and Me), so
 //   "Dourado" meets "dourad" and 𝐆𝐎𝐋𝐃 in mathematical bold meets "gold";
-// - a word is a maximal run of Unicode letters or digits; everything else —
-//   spaces, punctuation, apostrophes, hyphens, underscores — separates words,
-//   so "don't" is two words and "well-known" is two. A sentence with no word at
-//   all, "!!!" or blanks alone, is empty;
-// - for the Taboo the terms are folded alike, and a term blocks every word that
-//   *starts* with it.
+// - a word is a maximal run of Unicode letters or digits, and an apostrophe —
+//   `'` (U+0027), `’` (U+2019) or `ʼ` (U+02BC) — between a letter or digit on
+//   each side joins two runs into one word: "generator's", "don't", "d'ouro"
+//   and "rock’n’roll" are one word each. An apostrophe at the start or the end
+//   of a word ("'tis", "miners'"), doubled or alone separates, and is no part
+//   of a word. `ʼ` is a letter to Unicode (category `Lm`) and is taken out of
+//   the letters so it behaves like the other two; none of the three is a
+//   formatting character, a default-ignorable code point or a mark, so the
+//   steps above leave them in. Everything else — spaces, punctuation, hyphens,
+//   underscores — separates words, so "well-known" is two. A sentence with no
+//   word at all, "!!!" or blanks alone, is empty;
+// - for the Taboo the terms are folded alike, with their apostrophes taken
+//   out, and a term blocks every word that *starts* with it. A word with
+//   apostrophes is checked whole with its apostrophes taken out ("d'ouro" as
+//   "douro") and piece by piece between them ("d", "ouro"), so "d'ouro" is
+//   still blocked by "ouro" and "go'ld" by "gold". A term that folds to
+//   nothing blocks nothing.
 //
 // One approximation: Python's `casefold` is done here as `toLowerCase`. They
 // differ on a handful of letters — `ß` folds to "ss" in Python and stays `ß`
@@ -234,21 +245,41 @@ export function fold(text: string): string {
   return text.normalize('NFKD').toLowerCase().normalize('NFKD').replace(/\p{M}/gu, '');
 }
 
-/** The words of `sentence`, folded, once its invisible characters are gone. */
+/** The apostrophes that join a word, as the backend's `APOSTROPHES`. */
+const APOSTROPHES = "'\u2019\u02bc";
+const APOSTROPHE = new RegExp(`[${APOSTROPHES}]`, 'gu');
+/** Letters and digits, not counting the apostrophes (`ʼ` is a letter to Unicode). */
+const LETTERS = `(?:(?![${APOSTROPHES}])[\\p{L}\\p{N}])+`;
+const WORD = new RegExp(`${LETTERS}(?:[${APOSTROPHES}]${LETTERS})*`, 'gu');
+
+/**
+ * The words of `sentence`, folded, once its invisible characters are gone. A
+ * word keeps the apostrophes inside it as they were typed.
+ */
 export function words(sentence: string): string[] {
   const visible = sentence.replace(/\p{Cf}/gu, '');
-  return fold(visible.replace(IGNORABLE, '')).match(/[\p{L}\p{N}]+/gu) ?? [];
+  return fold(visible.replace(IGNORABLE, '')).match(WORD) ?? [];
 }
 
 export function countWords(sentence: string): number {
   return words(sentence).length;
 }
 
+/**
+ * The forms of a found word a term is checked against: a word without an
+ * apostrophe is its one form; one with apostrophes is the whole word with them
+ * taken out, then each piece between them ("d'ouro": "douro", "d", "ouro").
+ */
+function tabooForms(word: string): string[] {
+  const pieces = word.split(APOSTROPHE);
+  return pieces.length > 1 ? [pieces.join(''), ...pieces] : pieces;
+}
+
 /** The level's forbidden terms that `sentence` uses, in the level's order. */
 export function tabooHits(level: PublicLevel, sentence: string): string[] {
-  const found = words(sentence);
+  const forms = words(sentence).flatMap(tabooForms);
   return level.taboo.filter((term) => {
-    const folded = fold(term);
-    return folded !== '' && found.some((word) => word.startsWith(folded));
+    const key = fold(term).replace(APOSTROPHE, '');
+    return key !== '' && forms.some((form) => form.startsWith(key));
   });
 }
