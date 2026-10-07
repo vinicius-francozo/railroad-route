@@ -864,6 +864,41 @@ describe('sending the cart', () => {
     expect(shownText(app.readings)).toContain(UI_TEXT.readingsBefore);
   });
 
+  it('takes the last run off the board as soon as the next one is sent, before the answer comes', async () => {
+    const app = await ready({ runs: [{ status: 200, body: ARRIVED }, 'hang'] });
+    app.send.click();
+    await settle();
+    expect(app.cart.hidden).toBe(false);
+    expect(shownText(app.readings)).toContain('★★☆');
+
+    app.send.click();
+    await settle();
+    expect(app.cart.hidden).toBe(true);
+    expect(app.cart.attributes.has('data-end')).toBe(false);
+    for (const step of ARRIVED.path) expect(app.cell(step.x, step.y).attributes.has('data-trail')).toBe(false);
+    expect(shownText(app.readings)).not.toContain('☆');
+    expect(shownText(app.readings)).toContain(UI_TEXT.readingsBefore);
+  });
+
+  it('leaves nothing of the last run up when the next one is refused', async () => {
+    for (const answer of [
+      { status: 422, body: { error: 'taboo', detail: 'forbidden on this level: gold' } },
+      { status: 429, body: { error: 'quota_exhausted', detail: '' } },
+      { status: 401, body: { error: 'key_rejected', detail: '' } },
+      { status: 502, body: { error: 'jev_unavailable', detail: '' } },
+    ] as Answer[]) {
+      const app = await ready({ runs: [{ status: 200, body: ARRIVED }, answer] });
+      app.send.click();
+      await settle();
+      app.send.click();
+      await settle();
+      expect(app.failure.hidden).toBe(false);
+      expect(app.cart.hidden).toBe(true);
+      expect(app.cell(0, 1).attributes.has('data-trail')).toBe(false);
+      expect(shownText(app.readings)).not.toContain('☆');
+    }
+  });
+
   it('holds every control while the cart is out, and ignores a second click', async () => {
     const app = await ready({ runs: ['hang'] });
     app.send.click();

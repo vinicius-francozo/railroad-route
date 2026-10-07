@@ -710,6 +710,10 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
       return;
     }
     if (key !== '') headers['x-typesafe-key'] = key;
+    // The last run comes off now, before the answer: a refused run would leave
+    // its cart, readings and stars up as if they were this one's.
+    clearRun();
+    readingsBefore();
 
     busy = true;
     refreshControls();
@@ -739,7 +743,6 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
         }
         return;
       }
-      readingsBefore();
       say(UI_TEXT.onTrack);
       // On a narrow screen the board is above the button, out of sight once
       // the note is written: brought into view so the run is seen. Where it is
