@@ -6,7 +6,7 @@
   "outputDirectory": "dist",
   "functions": {
     "api/index.py": {
-      "includeFiles": "{backend/**,levels/**}"
+      "excludeFiles": "backend/tests/**"
     }
   },
   "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]

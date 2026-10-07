@@ -2,8 +2,10 @@
 
 `vercel.json` rewrites `/api/(.*)` here, and the app routes on the path the visitor asked for.
 The game itself lives in `backend/railroad`, which is not a package on Vercel's path, so its
-parent is put there first (`vercel.json` also bundles `backend/**` and `levels/**` with the
-function). Vercel loads the top-level `app`, an ASGI application
+parent is put there first. Vercel bundles every project file reachable at build time with a
+Python function, `backend/` and `levels/` included, and `vercel.json` only leaves
+`backend/tests/` out (https://vercel.com/docs/functions/runtimes/python, "Controlling what gets
+bundled"). Vercel loads the top-level `app`, an ASGI application
 (https://vercel.com/docs/functions/runtimes/python/api-directory).
 """
 
