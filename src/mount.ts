@@ -211,6 +211,12 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   levelNote.id = 'rr-level-rules';
   levelField.append(levelPicker, levelNote);
 
+  // A level's forbidden words can run to dozens of terms, too many to keep on
+  // screen under the note: they close the scrolling part instead, right above
+  // the note's field, and the note still points at them.
+  const taboo = make('p', 'rr-note rr-taboo');
+  taboo.id = 'rr-sentence-taboo';
+
   const switchesBlock = make('div', 'rr-switches');
   const switchesHeading = make('h3');
   switchesHeading.textContent = UI_TEXT.switchesHeading;
@@ -226,14 +232,12 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   sentence.spellcheck = false;
   const counter = make('p', 'rr-count');
   counter.id = 'rr-sentence-count';
-  const taboo = make('p', 'rr-note');
-  taboo.id = 'rr-sentence-taboo';
   // A warning while the note breaks a rule. Not a live region: it changes on
   // every keystroke, and the field already points at it for when it is read.
   const warning = make('p', 'rr-warning');
   warning.id = 'rr-sentence-warning';
   sentence.setAttribute('aria-describedby', 'rr-sentence-count rr-sentence-taboo rr-sentence-warning');
-  sentenceField.append(sentence, counter, taboo, warning);
+  sentenceField.append(sentence, counter, warning);
 
   const sendButton = make('button', iconClass('rr-go', 'cart'));
   sendButton.type = 'button';
@@ -263,12 +267,15 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   const planTitle = make('h2', 'rr-tag');
   planTitle.id = 'rr-plan-title';
   planTitle.textContent = UI_TEXT.planTitle;
+  // The key comes last in the scrolling part, right above the note, and is
+  // scrolled to when it appears.
   const planBody = make('div', 'rr-board-body');
-  planBody.append(planTitle, levelField, switchesBlock, sentenceField);
-  // The button, the key field and the failure stay under the scrolling part,
-  // so the one thing to press is never scrolled out of reach.
+  planBody.append(planTitle, levelField, switchesBlock, taboo, keyField);
+  // The note, the button and the failure stay under the scrolling part, so the
+  // note the puzzle is about and the one thing to press are never scrolled out
+  // of reach, however many switches the level lists.
   const planFoot = make('div', 'rr-plan-foot');
-  planFoot.append(keyField, sendButton, failure);
+  planFoot.append(sentenceField, sendButton, failure);
   const planBoard = make('section', 'rr-board rr-plan-board');
   planBoard.setAttribute('aria-labelledby', planTitle.id);
   planBoard.append(planBody, planFoot);
@@ -385,6 +392,9 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     failure.hidden = false;
     failure.replaceChildren(...children);
   };
+
+  /** How the page scrolls something into view: at once when the person asked for stillness. */
+  const scrollBehavior = (): ScrollBehavior => (services.reducedMotion() ? 'auto' : 'smooth');
 
   /** Writes the status line, only when the sentence changes: a live region announces every write. */
   const say = (sentence_: string): void => {
@@ -702,7 +712,10 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
       if (response.status !== 200 || !isRunResponse(body)) {
         say('');
         showFailure(response.status === 200 ? { title: UI_TEXT.unexpected } : describeRunError(response.status, body));
-        if (response.status === 429) keyField.hidden = false;
+        if (response.status === 429) {
+          keyField.hidden = false;
+          keyField.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+        }
         return;
       }
       readingsBefore();

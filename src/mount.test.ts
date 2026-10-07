@@ -86,6 +86,13 @@ class FakeElement {
     this.ownerDocument.focused = this;
   }
 
+  /** Every time the page asked to bring this into view, with how. */
+  readonly scrolled: unknown[] = [];
+
+  scrollIntoView(options?: unknown): void {
+    this.scrolled.push(options);
+  }
+
   fire(type: string, event: FakeEvent = { preventDefault: () => undefined }): void {
     for (const handler of this.listeners.get(type) ?? []) handler(event);
   }
@@ -827,6 +834,7 @@ describe('when the run is refused or fails', () => {
     app.send.click();
     await settle();
     expect(app.keyField.hidden).toBe(false);
+    expect(app.keyField.scrolled).toEqual([{ block: 'nearest', behavior: 'smooth' }]);
     expect(app.text()).toContain('Paste your own TypeSafe key');
   });
 

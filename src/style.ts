@@ -173,8 +173,9 @@ const FORM = `
 .rr-exits { margin: var(--s1) 0 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 14.5px; line-height: 1.3; }
 .rr-exits strong { color: var(--gold-hi); }
 .rr-exit-side { color: var(--ink-dim); white-space: nowrap; }
+.rr-taboo { margin-bottom: clamp(8px, 1.5vh, 16px); }
 
-/* under the scrolling form: the key when it is needed, the button, the failure */
+/* under the scrolling form: the note, the button, the failure */
 .rr-plan-foot { flex: none; padding-top: clamp(8px, 1.4vh, 12px); border-top: 2px solid #ffffff10; }
 .rr-plan-foot .rr-field { margin-bottom: var(--s2); }
 .rr-plan-foot .rr-failure { max-height: 30vh; overflow-y: auto; }
