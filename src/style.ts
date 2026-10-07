@@ -82,8 +82,8 @@ body {
   margin: 0; color: var(--ink); font: 400 16px/1.45 var(--f-body);
   display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
   padding: 0 16px calc(var(--floor-h) + var(--floor-gap));
-  background-color: var(--wall); background-image: var(--rr-art-earth, none);
-  background-size: 288px 192px; background-repeat: repeat; image-rendering: pixelated;
+  background-color: var(--wall); background-image: var(--rr-art-earth-bits, none), var(--rr-art-earth, none);
+  background-size: 672px 456px, 480px 336px; background-repeat: repeat; image-rendering: pixelated;
 }
 /* underground, the dark closes in from every edge */
 body::before {
@@ -365,8 +365,8 @@ const SCENE = `
   pointer-events: none; background-color: #0b0705;
   background-image:
     radial-gradient(ellipse 62% 58% at 50% 56%, rgba(0,0,0,.6) 0 40%, rgba(0,0,0,.4) 40% 62%, rgba(0,0,0,.2) 62% 84%, transparent 84%),
-    linear-gradient(rgba(10,6,4,.74), rgba(10,6,4,.74)), var(--rr-art-earth, none);
-  background-size: 100% 100%, 100% 100%, 288px 192px; background-repeat: no-repeat, no-repeat, repeat;
+    linear-gradient(rgba(10,6,4,.74), rgba(10,6,4,.74)), var(--rr-art-earth-bits, none), var(--rr-art-earth, none);
+  background-size: 100% 100%, 100% 100%, 672px 456px, 480px 336px; background-repeat: no-repeat, no-repeat, repeat, repeat;
   box-shadow: inset 0 0 0 10px rgba(140,96,60,.13), inset 0 0 0 22px rgba(140,96,60,.08), inset 0 0 0 36px rgba(140,96,60,.05),
     0 0 0 3px #0b0705; }
 /* the timber set: a post each side, standing in the floor, a knee brace under the cap */

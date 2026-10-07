@@ -17,7 +17,7 @@
  * and whole — `mountApp` finished the game before this started.
  */
 
-import { beamTile, chain, drawIcons, drawSprites, drawTrackArt, earthTile, floorTile, postTile } from './art';
+import { beamTile, chain, drawIcons, drawSprites, drawTrackArt, earthBitsTile, earthTile, floorTile, postTile } from './art';
 import type { Sprite } from './art';
 import { FRAME_MS } from './style';
 
@@ -44,6 +44,7 @@ export function dressScene(root: HTMLElement): void {
     for (const [name, sprite] of Object.entries(drawTrackArt())) art(name, sprite);
     for (const [name, icon] of Object.entries(drawIcons())) art(name, icon);
     art('earth', earthTile());
+    art('earth-bits', earthBitsTile());
     art('floor', floorTile());
     art('beam', beamTile());
     art('post', postTile());

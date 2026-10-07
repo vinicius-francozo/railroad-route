@@ -617,48 +617,141 @@ function keyIcon(): Sprite {
 // crystal in the rock, the dynamite, the bucket and the standing lamp are the
 // mine's own.
 
+/** A fleck of a cargo in the rock: gold, coal or crystal, two or three pixels, lit from the left. */
+function fleck(P: Pen, r: Rng, x: number, y: number): void {
+  const [light, dark] = ([['G', 'o'], ['A', 'a'], ['J', 'l']] as const)[(r() * 3) | 0] ?? ['G', 'o'];
+  P(x, y, 2, 2, '#120b06'); P(x, y, 1, 1, light); P(x + 1, y, 1, 1, dark);
+  if (r() < 0.5) { P(x + 1, y + 1, 2, 2, '#120b06'); P(x + 1, y + 1, 1, 1, light); }
+}
+
 /**
- * The earth the mine is cut into: strata of clay, ochre and gravel with wavy
- * seams, rounded pebbles lit from the top left, and one fleck of each cargo —
- * gold, coal, crystal. Tiles both ways: the waves repeat across its width, and
- * its first and last strata are one colour, so the seam between two tiles is
- * not seen.
+ * The bedded rock the mine is cut into: beds that swell and pinch, their seams
+ * stepping up and down as rock does, mottled, the harder beds cracked by
+ * leaning joints, and a bed of packed gravel. Tiles both ways — every seam
+ * ends where it began, and the first and last beds are one colour — and at
+ * 160 × 112 it repeats only every 480 × 336 screen pixels. The flecks of cargo
+ * and the pebbles are `earthBitsTile`'s, laid over it on another period.
  */
 export function earthTile(): Sprite {
-  const W = 96;
-  const H = 64;
+  const W = 160;
+  const H = 112;
   const cv = canvas(W, H);
   const P = pen(context(cv));
   const r = rng(13);
-  const strata: readonly (readonly [number, string])[] = [
-    [0, '#2a1c12'], [9, '#3a2817'], [14, '#22170f'], [25, '#2d2016'], [35, '#33241a'], [45, '#1f150e'], [54, '#2a1c12'],
+  // Each bed: its colour, its lit top, and whether it is hard rock (jointed) or gravel.
+  const beds: readonly (readonly [string, string, 'rock' | 'clay' | 'gravel'])[] = [
+    ['#2a1c12', '#35251a', 'clay'], ['#3a2817', '#4a3420', 'rock'], ['#22170f', '#2c1e14', 'clay'],
+    ['#2d2016', '#3a2a1d', 'gravel'], ['#33241a', '#433022', 'rock'], ['#1f150e', '#2a1d13', 'clay'],
+    ['#30221a', '#3e2c20', 'rock'], ['#2a1c12', '#35251a', 'clay'],
   ];
-  const waves = strata.map(() => ({ phase: r() * Math.PI * 2, bends: 1 + ((r() * 2) | 0) }));
-  const seamAt = (index: number, x: number): number => {
-    const [top] = strata[index] ?? [0];
-    const wave = waves[index] ?? { phase: 0, bends: 1 };
-    return index === 0 ? 0 : top + Math.round(1.8 * Math.sin((x / W) * Math.PI * 2 * wave.bends + wave.phase));
+  // Where each bed starts; then its seam, which swells and pinches on a slow
+  // swell of its own (a whole number of swells across the tile, so it wraps)
+  // and steps up and down in single pixels on top of that, pulled back to where
+  // it began by the right edge. Seams never meet: a bed pinches to two pixels.
+  const tops: number[] = [0];
+  for (let i = 1; i < beds.length; i++) tops.push((tops[i - 1] ?? 0) + 8 + ((r() * 9) | 0));
+  const scale = (H - 6) / (tops[tops.length - 1] ?? H);
+  const seams = tops.map((top, i) => {
+    if (i === 0) return new Array<number>(W).fill(0);
+    const base = Math.round(top * scale);
+    const swells = [1, 2, 3].map((k) => ({ k, amp: r() * (4.5 / k), phase: r() * Math.PI * 2 }));
+    const walk: number[] = [];
+    let y = 0;
+    for (let x = 0; x < W; x++) {
+      if (r() < 0.3) y += r() < 0.5 ? -1 : 1;
+      walk.push(y);
+    }
+    const drift = walk[W - 1] ?? 0;
+    return walk.map((dy, x) => {
+      const swell = swells.reduce((sum, { k, amp, phase }) => sum + amp * Math.sin((x / W) * Math.PI * 2 * k + phase), 0);
+      return base + Math.round(swell) + dy - Math.round((drift * x) / (W - 1));
+    });
+  });
+  for (let i = 1; i < seams.length; i++) {
+    const above = seams[i - 1] ?? [];
+    seams[i] = (seams[i] ?? []).map((y, x) => Math.max(y, (above[x] ?? 0) + 2));
+  }
+  const bedAt = (x: number, y: number): number => {
+    let index = 0;
+    for (let i = 0; i < seams.length; i++) if (y >= (seams[i]?.[x] ?? 0)) index = i;
+    return index;
   };
   for (let x = 0; x < W; x++) {
-    for (let index = 0; index < strata.length; index++) {
-      const from = seamAt(index, x);
-      const to = index + 1 < strata.length ? seamAt(index + 1, x) : H;
-      P(x, from, 1, to - from, strata[index]?.[1] ?? '#2a1c12');
-      // The seam itself: a dark line under a lighter one, broken in places.
-      if (index > 0 && index < strata.length - 1 && r() < 0.75) {
-        P(x, from, 1, 1, '#150e08');
-        if (r() < 0.5) P(x, from + 1, 1, 1, '#3d2b1d');
+    for (let y = 0; y < H; y++) {
+      const [body] = beds[bedAt(x, y)] ?? beds[0] ?? ['#2a1c12'];
+      P(x, y, 1, 1, body);
+    }
+  }
+  // Rock is mottled: blotches a shade lighter or darker, in the bed they fall in.
+  for (let i = 0; i < 46; i++) {
+    const cx = r() * W;
+    const cy = r() * H;
+    const rx = 2 + r() * 6;
+    const ry = 1 + r() * 2.2;
+    const lighter = r() < 0.5;
+    for (let y = Math.floor(cy - ry); y <= cy + ry; y++) {
+      for (let x = Math.floor(cx - rx); x <= cx + rx; x++) {
+        if (((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 > 1 || r() < 0.25) continue;
+        const wx = (x + W) % W;
+        const wy = (y + H) % H;
+        const [body, lit] = beds[bedAt(wx, wy)] ?? beds[0] ?? ['#2a1c12', '#35251a'];
+        P(wx, wy, 1, 1, lighter ? lit : '#1d140d');
+        if (!lighter && r() < 0.5) P(wx, wy, 1, 1, body);
       }
     }
   }
-  for (let i = 0; i < 160; i++) P((r() * W) | 0, (r() * H) | 0, 1, 1, r() < 0.5 ? '#37281c' : '#1a110a');
-  // The gravel stratum: small stones packed in it.
-  for (let i = 0; i < 26; i++) {
+  // The seams: a dark parting, broken, and here and there the lit lip of the bed under it.
+  for (let i = 1; i < seams.length; i++) {
+    const [, lit] = beds[i] ?? ['', '#35251a'];
+    for (let x = 0; x < W; x++) {
+      const y = seams[i]?.[x] ?? 0;
+      if (r() < 0.8) P(x, y, 1, 1, '#150e08');
+      if (r() < 0.3) P(x, y + 1, 1, 1, lit);
+    }
+  }
+  // The hard beds are cracked: now and then a joint runs down from the seam,
+  // leaning, often stopping short of the bed below.
+  for (let i = 0; i < beds.length; i++) {
+    if (beds[i]?.[2] !== 'rock') continue;
+    for (let x = 6 + ((r() * 30) | 0); x < W - 4; x += 22 + ((r() * 40) | 0)) {
+      let jx = x;
+      const lean = r() < 0.5 ? -1 : 1;
+      const from = (seams[i]?.[x] ?? 0) + 1;
+      const to = i + 1 < seams.length ? (seams[i + 1]?.[x] ?? H) : H;
+      const stop = from + Math.max(2, Math.round((to - from) * (0.45 + r() * 0.55)));
+      for (let y = from; y < Math.min(stop, to); y++) {
+        if (r() < 0.4) jx += lean;
+        P(jx, y, 1, 1, '#150e08');
+      }
+    }
+  }
+  // Grain: specks a shade either side of each bed.
+  for (let i = 0; i < 420; i++) P((r() * W) | 0, (r() * H) | 0, 1, 1, r() < 0.5 ? '#37281c' : '#1a110a');
+  // The gravel bed: small stones packed in it.
+  const gravel = beds.findIndex(([, , kind]) => kind === 'gravel');
+  for (let i = 0; i < 60; i++) {
     const x = (r() * (W - 2)) | 0;
-    const y = seamAt(3, x) + 2 + ((r() * 6) | 0);
+    const top = seams[gravel]?.[x] ?? 0;
+    const bottom = seams[gravel + 1]?.[x] ?? H;
+    const y = top + 2 + ((r() * Math.max(1, bottom - top - 4)) | 0);
     P(x, y, 2, 1, '#4d3c2d'); P(x, y + 1, 2, 1, '#1a110a');
   }
-  // Pebbles: rounded, outlined, three tones.
+  return cv;
+}
+
+/**
+ * What lies loose in the earth, on a transparent tile laid over `earthTile`:
+ * rounded pebbles lit from the top left, and flecks of cargo. Its period,
+ * 224 × 152, shares no small multiple with the rock's, so the two together
+ * repeat only every few thousand pixels, and a fleck comes back only every
+ * 672 × 456 screen pixels.
+ */
+export function earthBitsTile(): Sprite {
+  const W = 224;
+  const H = 152;
+  const cv = canvas(W, H);
+  const P = pen(context(cv));
+  const r = rng(71);
   const pebble = (cx: number, cy: number, rx: number, ry: number): void => {
     const inside = (x: number, y: number): boolean => ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1;
     for (let y = Math.floor(cy - ry) - 1; y <= cy + ry + 1; y++) {
@@ -670,17 +763,8 @@ export function earthTile(): Sprite {
       }
     }
   };
-  for (let i = 0; i < 9; i++) {
-    const rx = 1.6 + r() * 2.4;
-    const ry = 1.4 + r() * 1.4;
-    pebble(5 + r() * (W - 10), 4 + r() * (H - 8), rx, ry);
-  }
-  // One fleck of each cargo, small, in the rock.
-  for (const [light, dark] of [['G', 'o'], ['A', 'a'], ['J', 'l']] as const) {
-    const x = 4 + ((r() * (W - 8)) | 0);
-    const y = 4 + ((r() * (H - 8)) | 0);
-    P(x, y, 2, 2, '#120b06'); P(x, y, 1, 1, light); P(x + 1, y, 1, 1, dark);
-  }
+  for (let i = 0; i < 12; i++) pebble(5 + r() * (W - 10), 5 + r() * (H - 10), 1.6 + r() * 2.4, 1.4 + r() * 1.4);
+  for (let i = 0; i < 10; i++) fleck(P, r, 4 + ((r() * (W - 8)) | 0), 4 + ((r() * (H - 8)) | 0));
   return cv;
 }
 
