@@ -88,6 +88,11 @@ def test_punctuation_counts_no_words(level: Level) -> None:
         ("góld", "gold"),  # an accent in the sentence does not hide the word
         ("carvao", "carvão"),  # nor does leaving one out of a term that has it
         ("CARVÃO", "carvão"),
+        # Styled letters: mathematical bold capitals have no lower case until decomposed.
+        ("\U0001d406\U0001d40e\U0001d40b\U0001d403 bars", "gold"),
+        ("\U0001d40e\U0001d414\U0001d411\U0001d40e", "our"),
+        ("\U0001d420\U0001d428\U0001d425\U0001d41d", "gold"),  # mathematical bold small
+        ("\uff27\uff2f\uff2c\uff24", "gold"),  # fullwidth
     ],
 )
 def test_refuses_a_taboo_word(level: Level, sentence: str, term: str) -> None:

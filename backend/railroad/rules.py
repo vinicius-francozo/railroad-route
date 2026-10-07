@@ -9,10 +9,11 @@ for the Taboo, so the two rules can never disagree about what the player wrote.
 
 ## How the Taboo compares
 
-Both the sentence and the level's terms are folded the same way before they meet: casefolded,
-decomposed (NFKD), and stripped of combining marks. `OURO`, `Ouro` and `óuro` are then one word,
-and `dourad` reaches `Dourado`. A term blocks every word that *starts* with it, because a list
-of whole words would be beaten by the first plural or suffix (`golden`, `ourives`).
+Both the sentence and the level's terms are folded the same way before they meet: decomposed
+(NFKD), casefolded, decomposed again, and stripped of combining marks. `OURO`, `Ouro`, `óuro`
+and `OURO` written in mathematical bold letters are then one word, and `dourad` reaches
+`Dourado`. A term blocks every word that *starts* with it, because a list of whole words would
+be beaten by the first plural or suffix (`golden`, `ourives`).
 
 ## What a refusal says
 
@@ -38,10 +39,14 @@ _WORD = re.compile(r"[^\W_]+")
 def fold(text: str) -> str:
     """`text` with case and accents taken out, so `Dourado` and `dourado` compare equal.
 
-    Casefold comes first because folding can itself produce a combining mark (`İ` folds to
-    `i` plus a dot above), which the decomposition and the strip then remove.
+    The first decomposition comes before the casefold because some letters only get a lower
+    case once decomposed: a mathematical bold `G` (U+1D406) has none, and NFKD turns it into
+    `G`. The second one comes after it because casefolding can itself produce a combining
+    mark (`İ` folds to `i` plus a dot above), which the decomposition and the strip then
+    remove. Checked over every code point, the result is then stable: folding it again changes
+    nothing.
     """
-    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    decomposed = unicodedata.normalize("NFKD", unicodedata.normalize("NFKD", text).casefold())
     return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
 
 
