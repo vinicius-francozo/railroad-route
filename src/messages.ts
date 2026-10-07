@@ -30,6 +30,7 @@ export const UI_TEXT = {
   tagline: 'Lay the track, write the cart a note, and let Jev throw the switches.',
 
   planTitle: 'Plan the run',
+  planBodyLabel: 'The level, its switches and forbidden words',
   levelLabel: 'Level',
   switchesHeading: 'What the switches ask',
   noSwitches: 'No switches on this level: the track alone decides.',

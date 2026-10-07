@@ -270,6 +270,12 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   // The key comes last in the scrolling part, right above the note, and is
   // scrolled to when it appears.
   const planBody = make('div', 'rr-board-body');
+  // A tab stop of its own, so the keyboard can scroll it: the picker inside is
+  // focusable, and a browser then does not make the scrolling part one, which
+  // leaves the switches and the forbidden words under the picker out of reach.
+  planBody.tabIndex = 0;
+  planBody.setAttribute('role', 'region');
+  planBody.setAttribute('aria-label', UI_TEXT.planBodyLabel);
   planBody.append(planTitle, levelField, switchesBlock, taboo, keyField);
   // The note, the button and the failure stay under the scrolling part, so the
   // note the puzzle is about and the one thing to press are never scrolled out

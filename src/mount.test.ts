@@ -34,7 +34,8 @@ class FakeElement {
   spellcheck = false;
   rows = 0;
   disabled = false;
-  tabIndex = 0;
+  /** As in a browser: a control is a tab stop, anything else is not until it is made one. */
+  tabIndex = -1;
 
   /** Being revealed, hidden and filled, in the order it happened: what tells an alert that announces from one that does not. */
   readonly trace: string[] = [];
@@ -43,7 +44,9 @@ class FakeElement {
   constructor(
     readonly tagName: string,
     readonly ownerDocument: FakeDocument,
-  ) {}
+  ) {
+    if (['button', 'input', 'select', 'summary', 'textarea'].includes(tagName)) this.tabIndex = 0;
+  }
 
   get hidden(): boolean {
     return this.#hidden;
@@ -410,6 +413,16 @@ describe('the page the run is planned on', () => {
     expect(app.failure.attributes.get('role')).toBe('alert');
     expect(app.failure.attributes.get('aria-live')).toBe('assertive');
     expect(app.failure.hidden).toBe(true);
+  });
+
+  it('makes the scrolling part of the plan a named tab stop, so the keyboard can reach and scroll it', () => {
+    const app = mountHarness();
+    const body = byClass(app.root, 'rr-board-body');
+    expect(body.tabIndex).toBe(0);
+    expect(body.attributes.get('role')).toBe('region');
+    expect(body.attributes.get('aria-label')).toBe(UI_TEXT.planBodyLabel);
+    expect(descendants(body)).toContain(byId(app.root, 'rr-sentence-taboo'));
+    expect(descendants(body)).toContain(byClass(app.root, 'rr-switches'));
   });
 
   it('mounts with nothing but a root, the way main.ts calls it, and says the levels did not load', async () => {
