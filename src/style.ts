@@ -134,6 +134,10 @@ const LAYOUT = `
   /* the lamps' light spreads wider than a narrow screen: it must not make the page scroll sideways */
   overflow-x: clip; }
 .rr-hall > * { position: relative; z-index: 1; }
+/* but not the lamps: a lamp's light falls on the rock and the timbers behind
+   the plaque and the boards, never on them, so its wrap makes no stacking
+   context of its own and the light sinks to the back of the tunnel's */
+.rr-hall > .rr-lantern-wrap { z-index: auto; }
 .rr-plaque { grid-column: 3; position: relative; text-align: center;
   padding: clamp(6px, 1.2vh, 12px) clamp(16px, 2.4vw, 32px) clamp(8px, 1.6vh, 16px);
   background: linear-gradient(#5a3820, #432916); border: 4px solid var(--wood-lo);
