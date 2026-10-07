@@ -536,8 +536,9 @@ const TYPE_GLYPHS: Readonly<Record<string, readonly string[]>> = {
  * The capitals a switch's letter is drawn in on the board, 3 × 5, `k` on `.`.
  * At sixteen pixels to the square there is no room on a switch for the badge
  * the list wears: the one corner no rail or mark reaches is three of its
- * pixels wide and four high, so the board shows the letter alone, on a small
- * parchment plate, drawn at half a track pixel.
+ * pixels wide and four high, so the board shows the letter alone, on a
+ * parchment plate the stylesheet draws round it, at the largest whole scale
+ * that fits the corner.
  */
 const LETTER_ROWS: Readonly<Record<string, string>> = {
   A: '.k.k.kkkkk.kk.k', B: 'kk.k.kkk.k.kkk.', C: '.kkk..k..k...kk', D: 'kk.k.kk.kk.kkk.', E: 'kkkk..kk.k..kkk',
@@ -548,12 +549,9 @@ const LETTER_ROWS: Readonly<Record<string, string>> = {
   Z: 'kkk..k.k.k..kkk',
 };
 
-/** A letter of `LETTER_ROWS` on its plate: 5 × 7, ink on parchment, a darker edge along the bottom. */
-function letterPlate(rows: string): Sprite {
-  const plate = ['ppppp'];
-  for (let y = 0; y < 5; y++) plate.push(`p${rows.slice(y * 3, y * 3 + 3).replaceAll('.', 'p')}p`);
-  plate.push('PPPPP');
-  return fromRows(plate);
+/** A letter of `LETTER_ROWS` as a sprite: 3 × 5, ink on nothing (the plate is the stylesheet's). */
+function letterSprite(rows: string): Sprite {
+  return fromRows([0, 1, 2, 3, 4].map((y) => rows.slice(y * 3, y * 3 + 3)));
 }
 
 // --- The cart -------------------------------------------------------------------
@@ -1110,6 +1108,6 @@ export function drawIcons(): Readonly<Record<string, Sprite>> {
   for (const [name, rows] of Object.entries(ICON_ROWS)) icons[name] = fromRows(rows);
   for (const [name, mark] of Object.entries(exitMarkSprites())) icons[`mark-${name}`] = mark;
   for (const [name, rows] of Object.entries(TYPE_GLYPHS)) icons[`type-${name}`] = fromRows(rows);
-  for (const [letter, rows] of Object.entries(LETTER_ROWS)) icons[`letter-${letter}`] = letterPlate(rows);
+  for (const [letter, rows] of Object.entries(LETTER_ROWS)) icons[`letter-${letter}`] = letterSprite(rows);
   return icons;
 }

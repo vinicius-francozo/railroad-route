@@ -290,18 +290,28 @@ const TRACK = `
 .rr-badge[data-corner="sw"] { bottom: 0; left: 0; }
 /* With the art, the corner across from the entry that no rail and no mark
    reaches is three track pixels by four, too small for that plate, so the
-   board shows the letter alone on its plate, a 5 x 7 sprite at half a track
-   pixel (--px, rounded down to a whole screen pixel), clear of the neighbours
-   and of the focus ring outside the square. After a run the branch the cart
-   took stays bright, its mark ringed in gold, and the others go dark. */
-:root[data-art] .rr-grid .rr-badge { --px: 1px; width: calc(var(--px) * 5); height: calc(var(--px) * 7);
-  padding: 0; gap: 0; justify-content: center; color: transparent; box-shadow: none;
-  background: var(--letter, none) 0 0 / 100% 100% no-repeat, var(--parch); image-rendering: pixelated; }
-@supports (width: round(down, 10px, 4px)) { :root[data-art] .rr-grid .rr-badge { --px: round(down, var(--cell) / 32, 1px); } }
-:root[data-art] .rr-badge[data-corner="ne"] { top: var(--px); right: var(--px); }
-:root[data-art] .rr-badge[data-corner="nw"] { top: var(--px); left: var(--px); }
-:root[data-art] .rr-badge[data-corner="se"] { bottom: var(--px); right: var(--px); }
-:root[data-art] .rr-badge[data-corner="sw"] { bottom: var(--px); left: var(--px); }
+   board shows the letter alone: a 3 x 5 sprite drawn at --s screen pixels a
+   pixel, the largest whole scale whose plate (the letter and one screen pixel
+   of parchment round it) fits the corner — 1 at 32 px squares, 2 at 48 and
+   64 — set in the middle of the corner, any odd pixel left on the outer side
+   (--dx, --dy). Clear of the neighbours, and under the focus ring. Without
+   round() the square is always 48 px, so the fallback is that one's numbers.
+   After a run the branch the cart took stays bright, its mark ringed in gold,
+   and the others go dark. */
+:root[data-art] .rr-grid .rr-badge { --s: 2px; --dx: 1px; --dy: 0px;
+  width: calc(var(--s) * 3 + 2px); height: calc(var(--s) * 5 + 2px); padding: 0; gap: 0; color: transparent;
+  box-shadow: inset 0 -1px 0 var(--parch-lo);
+  background: var(--letter, none) 1px 1px / calc(var(--s) * 3) calc(var(--s) * 5) no-repeat, var(--parch); image-rendering: pixelated; }
+@supports (width: round(down, 10px, 4px)) {
+  :root[data-art] .rr-grid .rr-badge {
+    --s: round(down, min(var(--u) - 2px / 3, (var(--u) * 4 - 2px) / 5), 1px);
+    --dx: round(up, (var(--u) * 3 - var(--s) * 3 - 2px) / 2, 1px);
+    --dy: round(up, (var(--u) * 4 - var(--s) * 5 - 2px) / 2, 1px); }
+}
+:root[data-art] .rr-badge[data-corner="ne"] { top: var(--dy); right: var(--dx); }
+:root[data-art] .rr-badge[data-corner="nw"] { top: var(--dy); left: var(--dx); }
+:root[data-art] .rr-badge[data-corner="se"] { bottom: var(--dy); right: var(--dx); }
+:root[data-art] .rr-badge[data-corner="sw"] { bottom: var(--dy); left: var(--dx); }
 .rr-mark { position: absolute; z-index: 1; width: calc(var(--u) * 6); height: calc(var(--u) * 6); pointer-events: none;
   background: var(--mark, none) 0 0 / 100% 100% no-repeat; image-rendering: pixelated;
   filter: drop-shadow(var(--u) var(--u) 0 rgba(0,0,0,.55)); }
