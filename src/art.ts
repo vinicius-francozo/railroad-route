@@ -469,6 +469,270 @@ function keyIcon(): Sprite {
   );
 }
 
+// --- The gallery around the board ---------------------------------------------
+//
+// Scenery only, none of it read back by the game. The stone, the beam, the
+// chain, the bracket, the lantern, the crack, the moss, the barrel, the crates,
+// the sack and the rat are Gridsmith's, unchanged; the floor gains a rail, and
+// the ore veins and the miner's tools are this page's own.
+
+/** The wall: dark bricks in staggered rows, a little moss in the joints. */
+export function stoneTile(): Sprite {
+  const cv = canvas(64, 32);
+  const ctx = context(cv);
+  const r = rng(11);
+  ctx.fillStyle = '#101115';
+  ctx.fillRect(0, 0, 64, 32);
+  const shades = ['#26292f', '#2b2e35', '#23252b', '#2f333a', '#272a30'];
+  for (let row = 0; row < 4; row++) {
+    const off = row % 2 ? 8 : 0;
+    for (let bx = -off; bx < 64; bx += 16) {
+      const x = bx + 1;
+      const y = row * 8 + 1;
+      ctx.fillStyle = shades[(r() * shades.length) | 0] ?? shades[0];
+      ctx.fillRect(x, y, 15, 7);
+      ctx.fillStyle = '#ffffff10';
+      ctx.fillRect(x, y, 15, 1);
+      ctx.fillStyle = '#00000040';
+      ctx.fillRect(x, y + 6, 15, 1);
+      if (r() < 0.18) {
+        ctx.fillStyle = '#2d4528';
+        ctx.fillRect(x + ((r() * 12) | 0), y + 6, 3, 1);
+      }
+    }
+  }
+  return cv;
+}
+
+/** The ceiling beam, repeated across the top of the page. */
+export function beamTile(): Sprite {
+  const cv = canvas(32, 12);
+  const P = pen(context(cv));
+  const r = rng(41);
+  P(0, 0, 32, 12, 'W'); P(0, 0, 32, 1, 'h'); P(0, 10, 32, 1, 'w'); P(0, 11, 32, 1, 'k');
+  for (let i = 0; i < 6; i++) P((r() * 26) | 0, 2 + ((r() * 7) | 0), 3 + ((r() * 7) | 0), 1, 'w');
+  P(20, 5, 2, 2, 'n'); P(21, 5, 1, 1, 'w');
+  return cv;
+}
+
+/**
+ * The floor: Gridsmith's stone skirting and three rows of flags that get
+ * taller and lighter toward the viewer, with a mine rail laid along the
+ * nearest row, so the gallery's floor is the track's floor.
+ */
+export function floorTile(): Sprite {
+  const cv = canvas(48, 26);
+  const P = pen(context(cv));
+  const r = rng(91);
+  P(0, 0, 48, 26, '#101114');
+  for (let x = 0; x < 48; x += 12) {
+    P(x, 0, 11, 4, '#4a4e56'); P(x, 0, 11, 1, '#6b7079'); P(x, 3, 11, 1, '#33363c');
+  }
+  P(0, 4, 48, 2, '#08090a');
+  const rows: readonly (readonly [number, number, number, readonly string[]])[] = [
+    [6, 5, 8, ['#2a2c31', '#26282d', '#2d2f35']],
+    [12, 6, 12, ['#33363c', '#2f3237', '#373a40']],
+    [19, 7, 16, ['#3c3f46', '#383b41', '#41444b']],
+  ];
+  for (const [y, h, w, tones] of rows) {
+    const off = (y % 2) * (w / 2);
+    for (let x = -off; x < 48; x += w) {
+      P(x + 1, y, w - 1, h - 1, tones[(r() * tones.length) | 0] ?? tones[0] ?? '#333');
+      P(x + 1, y, w - 1, 1, 'rgba(255,255,255,.07)');
+      if (r() < 0.35) P(x + 2 + ((r() * (w - 5)) | 0), y + 2, 2, 1, 'rgba(0,0,0,.25)');
+    }
+  }
+  for (let x = 2; x < 48; x += 6) { P(x, 13, 3, 9, 'w'); P(x, 13, 3, 1, 'h'); P(x + 3, 14, 1, 8, 'k'); }
+  for (const y of [14, 20]) { P(0, y, 48, 1, 'S'); P(0, y + 1, 48, 1, 'i'); P(0, y + 2, 48, 1, 'k'); }
+  return cv;
+}
+
+/** An iron chain of `links` links, hanging straight down. */
+export function chain(links: number): Sprite {
+  const cv = canvas(6, links * 4 + 1);
+  const P = pen(context(cv));
+  for (let i = 0; i < links; i++) {
+    const y = i * 4;
+    if (i % 2 === 0) {
+      P(1, y, 4, 5, 'k'); P(2, y + 1, 2, 3, 'x'); P(1, y, 4, 1, 'I'); P(1, y, 1, 4, 'I'); P(4, y + 1, 1, 4, 'i');
+    } else {
+      P(2, y, 2, 5, 'k'); P(2, y + 1, 1, 3, 'I'); P(3, y + 1, 1, 3, 'i');
+    }
+  }
+  return cv;
+}
+
+function bracket(): Sprite {
+  const cv = canvas(8, 14);
+  const P = pen(context(cv));
+  P(0, 0, 8, 14, 'k'); P(1, 0, 6, 13, 'i'); P(1, 0, 6, 1, 'I'); P(1, 0, 1, 13, 'I');
+  P(3, 3, 2, 2, 'I'); P(3, 9, 2, 2, 'I'); P(4, 4, 1, 1, 'k'); P(4, 10, 1, 1, 'k');
+  return cv;
+}
+
+function lantern(frame: number): Sprite {
+  const cv = canvas(14, 24);
+  const P = pen(context(cv));
+  const f = frame % 2;
+  P(5, 0, 4, 2, 'k'); P(6, 0, 2, 1, 'I');
+  P(3, 2, 8, 3, 'k'); P(4, 3, 6, 1, 'i');
+  P(2, 5, 10, 13, 'k'); P(3, 6, 8, 11, '#e9a640'); P(4, 7, 6, 9, 'F');
+  P(6, 10 - f, 2, 5 + f, 'y'); P(5 + f, 12, 1, 3, 'f');
+  P(2, 5, 1, 13, 'i'); P(11, 5, 1, 13, 'i'); P(6, 5, 2, 1, 'i');
+  P(3, 18, 8, 2, 'k'); P(4, 18, 6, 1, 'i'); P(6, 20, 2, 2, 'k');
+  return cv;
+}
+
+function crack(seed: number): Sprite {
+  const cv = canvas(12, 16);
+  const P = pen(context(cv));
+  const r = rng(seed);
+  let x = 6;
+  for (let y = 0; y < 16; y++) {
+    x += r() < 0.45 ? (r() < 0.5 ? -1 : 1) : 0;
+    x = Math.max(1, Math.min(10, x));
+    P(x, y, 1, 1, '#08080a');
+    if (r() < 0.3) P(x + 1, y, 1, 1, '#ffffff12');
+    if (y === 7) for (let k = 1; k < 5; k++) P(x + k, y + k, 1, 1, '#08080a');
+  }
+  return cv;
+}
+
+function moss(): Sprite {
+  const cv = canvas(12, 6);
+  const P = pen(context(cv));
+  const r = rng(5);
+  const greens = ['M', 'm', '#24451f'];
+  for (let i = 0; i < 30; i++) {
+    const x = (r() * 12) | 0;
+    const y = (r() * 6) | 0;
+    if (Math.abs(x - 6) / 6 + y / 6 < 1.1) P(x, y, 1, 1, greens[(r() * 3) | 0] ?? 'M');
+  }
+  return cv;
+}
+
+/** A seam of gold in the rock: a dark fissure with nuggets caught in it. */
+function oreVein(seed: number): Sprite {
+  const cv = canvas(20, 12);
+  const P = pen(context(cv));
+  const r = rng(seed);
+  let y = 6;
+  for (let x = 0; x < 20; x++) {
+    y = Math.max(2, Math.min(9, y + (r() < 0.4 ? (r() < 0.5 ? -1 : 1) : 0)));
+    P(x, y, 1, 2, '#0c0b0c');
+    if (r() < 0.32) { P(x, y - 1, 2, 2, 'k'); P(x, y - 1, 1, 1, 'G'); P(x + 1, y, 1, 1, 'o'); }
+  }
+  return cv;
+}
+
+/** A pick and a shovel crossed on a peg, as a miner leaves them on the wall. */
+function minerTools(): Sprite {
+  const cv = canvas(24, 24);
+  const P = pen(context(cv));
+  for (let i = 0; i < 18; i++) {
+    P(3 + i, 3 + i, 2, 2, 'k'); P(4 + i, 3 + i, 1, 1, 'h');
+    P(20 - i, 3 + i, 2, 2, 'k'); P(20 - i, 3 + i, 1, 1, 'W');
+  }
+  // The shovel's blade, bottom left; the pick's head, top left.
+  P(0, 17, 7, 7, 'k'); P(1, 18, 5, 5, 'I'); P(1, 18, 5, 1, 'S'); P(5, 19, 1, 4, 'i');
+  P(0, 2, 10, 3, 'k'); P(1, 3, 8, 1, 'S'); P(0, 5, 2, 3, 'k'); P(8, 0, 3, 3, 'k'); P(9, 1, 1, 1, 'I');
+  P(10, 9, 4, 4, 'k'); P(11, 10, 2, 2, 'g');
+  return cv;
+}
+
+function barrel(): Sprite {
+  const cv = canvas(18, 22);
+  const P = pen(context(cv));
+  P(2, 0, 14, 22, 'k'); P(1, 3, 16, 16, 'k'); P(3, 1, 12, 20, 'W'); P(2, 4, 14, 14, 'W');
+  P(6, 1, 1, 20, 'w'); P(11, 1, 1, 20, 'w'); P(4, 2, 1, 18, 'h');
+  P(1, 5, 16, 2, 'i'); P(1, 15, 16, 2, 'i'); P(1, 5, 16, 1, 'I'); P(1, 15, 16, 1, 'I');
+  return cv;
+}
+
+function crates(): Sprite {
+  const cv = canvas(26, 24);
+  const P = pen(context(cv));
+  const crate = (x: number, y: number, w: number, h: number): void => {
+    P(x, y, w, h, 'k'); P(x + 1, y + 1, w - 2, h - 2, 'W'); P(x + 1, y + 1, w - 2, 1, 'h');
+    for (let i = 0; i < w - 4; i++) P(x + 2 + i, y + 2 + Math.round((i * (h - 5)) / (w - 5)), 1, 1, 'w');
+    P(x + 1, y + (h >> 1), w - 2, 1, 'w');
+  };
+  crate(0, 11, 16, 13); crate(15, 14, 11, 10); crate(3, 0, 12, 11);
+  return cv;
+}
+
+function sack(): Sprite {
+  const cv = canvas(14, 15);
+  const P = pen(context(cv));
+  [4, 4, 6, 8, 10, 12, 12, 12, 12, 12, 12, 12, 10].forEach((w, i) => {
+    const x = 7 - (w >> 1);
+    P(x - 1, i + 2, w + 2, 1, 'k'); P(x, i + 2, w, 1, i > 6 ? 'C' : 'P');
+  });
+  P(5, 1, 4, 2, 'w'); P(6, 0, 2, 1, 'k'); P(4, 8, 1, 3, 'P'); P(9, 6, 2, 1, 'C');
+  return cv;
+}
+
+function rat(frame: number): Sprite {
+  // Side view, facing right. The body is a mask so every edge pixel gets its
+  // outline and the inside gets three tones — back, flank, belly; the tail
+  // leaves the haunch, runs along the floor and curls up at the tip.
+  const cv = canvas(30, 11);
+  const ctx = context(cv);
+  const P = pen(ctx);
+  for (const [x, y] of [[10, 6], [9, 6], [8, 6], [7, 6], [6, 7], [5, 7], [4, 7], [3, 8], [2, 8], [1, 8], [0, 7], [0, 6], [1, 5]] as const) P(x, y, 1, 1, '#b58c86');
+  for (const [x, y] of [[5, 6], [3, 7], [1, 7]] as const) P(x, y, 1, 1, '#8f6964');
+  ctx.translate(6, 0);
+  const runs: Readonly<Record<number, readonly (readonly [number, number])[]>> = {
+    1: [[15, 17]], 2: [[8, 12], [14, 18]], 3: [[6, 19]], 4: [[5, 21]], 5: [[4, 22]], 6: [[4, 21]], 7: [[5, 19]], 8: [[7, 16]],
+  };
+  const inMask = (x: number, y: number): boolean => (runs[y] ?? []).some(([a, b]) => x >= a && x <= b);
+  for (let y = 0; y < 11; y++) {
+    for (let x = 0; x < 24; x++) {
+      if (!inMask(x, y)) continue;
+      const edge = !inMask(x - 1, y) || !inMask(x + 1, y) || !inMask(x, y - 1) || !inMask(x, y + 1);
+      P(x, y, 1, 1, edge ? '#2a211c' : y <= 3 ? '#9c8f83' : y >= 7 ? '#c2b5a5' : '#7a6d62');
+    }
+  }
+  P(16, 2, 1, 1, '#e29a9a'); P(15, 2, 1, 1, '#c27a7a');
+  P(19, 4, 1, 1, '#120d0b'); P(19, 3, 1, 1, '#cfc6ba');
+  P(22, 5, 1, 1, '#e29a9a');
+  P(23, 4, 1, 1, 'rgba(220,214,204,.7)'); P(23, 6, 1, 1, 'rgba(220,214,204,.7)');
+  const legs = frame % 2
+    ? ([[9, 9], [9, 10], [14, 9], [14, 10]] as const)
+    : ([[8, 9], [7, 10], [15, 9], [16, 10]] as const);
+  for (const [x, y] of legs) P(x, y, 1, 1, y === 10 ? '#d99a92' : '#2a211c');
+  return cv;
+}
+
+/** The cart, parked: the first frame of the rolling strip, on its own. */
+function parkedCart(): Sprite {
+  const cv = canvas(16, 16);
+  context(cv).drawImage(cartStrip(), 0, 0, 16, 16, 0, 0, 16, 16);
+  return cv;
+}
+
+/**
+ * The scenery, as its frames. One frame for a still piece; more for the ones
+ * that flicker or run, which `scene.ts` steps through.
+ */
+export function drawSprites(): Readonly<Record<string, readonly Sprite[]>> {
+  return {
+    bracket: [bracket()],
+    lantern: [lantern(0), lantern(1)],
+    crack: [crack(3)],
+    crack2: [crack(19)],
+    moss: [moss()],
+    vein: [oreVein(7)],
+    vein2: [oreVein(23)],
+    tools: [minerTools()],
+    barrel: [barrel()],
+    crates: [crates()],
+    sack: [sack()],
+    rat: [rat(0), rat(1)],
+    cart: [parkedCart()],
+  };
+}
+
 /**
  * Every piece of track and every switch, as CSS-ready sprites, by name.
  *

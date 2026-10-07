@@ -55,6 +55,7 @@ export const UI_TEXT = {
   loadingLevels: 'Loading the levels…',
   ready: 'Turn the marked pieces, lay pieces from the crate, write the note, and send the cart.',
   rolling: 'Jev is reading the note…',
+  onTrack: 'The cart is on the track…',
 
   levelsFailed: 'Could not load the levels. Check your connection and reload the page.',
   emptySentence: 'Write a note for the cart before sending it.',
@@ -336,7 +337,7 @@ export function describeRunError(status: number, body: unknown): Failure {
       return parsed === undefined || parsed.detail === '' ? { title } : { title, detail: parsed.detail };
     }
     case 429:
-      return { title: 'The free runs for today are used up. Paste your own TypeSafe key below to keep playing.' };
+      return { title: 'The free runs for today are used up. Paste your own TypeSafe key into the key field to keep playing.' };
     case 401:
       return { title: 'TypeSafe turned the key down. Check the key and send the cart again.' };
     case 502:

@@ -264,10 +264,14 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   planTitle.id = 'rr-plan-title';
   planTitle.textContent = UI_TEXT.planTitle;
   const planBody = make('div', 'rr-board-body');
-  planBody.append(planTitle, levelField, switchesBlock, sentenceField, sendButton, keyField, failure);
+  planBody.append(planTitle, levelField, switchesBlock, sentenceField);
+  // The button, the key field and the failure stay under the scrolling part,
+  // so the one thing to press is never scrolled out of reach.
+  const planFoot = make('div', 'rr-plan-foot');
+  planFoot.append(keyField, sendButton, failure);
   const planBoard = make('section', 'rr-board rr-plan-board');
   planBoard.setAttribute('aria-labelledby', planTitle.id);
-  planBoard.append(planBody);
+  planBoard.append(planBody, planFoot);
 
   // --- The track: the crate, the board, what Jev read -------------------------------
 
@@ -555,7 +559,7 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
             answer.textContent = line.answer;
             const meaning = make('span');
             meaning.textContent = ` — ${line.meaning} `;
-            const side = make('span', 'rr-side');
+            const side = make('span', 'rr-exit-side');
             side.textContent = line.side;
             exit.append(answer, meaning, side);
             return exit;
@@ -697,6 +701,7 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
         return;
       }
       readingsBefore();
+      say(UI_TEXT.onTrack);
       await roll(body);
       stars = recordStars(services.storage, playing.level.id, body.stars);
       refreshPicker();

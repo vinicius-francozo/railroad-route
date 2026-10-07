@@ -172,10 +172,15 @@ const FORM = `
 .rr-switch-title { margin: 0; font-weight: 700; font-size: 15.5px; line-height: 1.3; }
 .rr-exits { margin: var(--s1) 0 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 14.5px; line-height: 1.3; }
 .rr-exits strong { color: var(--gold-hi); }
-.rr-side { color: var(--ink-dim); white-space: nowrap; }
+.rr-exit-side { color: var(--ink-dim); white-space: nowrap; }
+
+/* under the scrolling form: the key when it is needed, the button, the failure */
+.rr-plan-foot { flex: none; padding-top: clamp(8px, 1.4vh, 12px); border-top: 2px solid #ffffff10; }
+.rr-plan-foot .rr-field { margin-bottom: var(--s2); }
+.rr-plan-foot .rr-failure { max-height: 30vh; overflow-y: auto; }
 
 /* the one main button */
-.rr-go { width: 100%; height: 52px; margin: var(--s1) 0 var(--s2); padding: 0 14px; cursor: pointer; white-space: nowrap;
+.rr-go { width: 100%; height: 52px; margin: 0; padding: 0 14px; cursor: pointer; white-space: nowrap;
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
   font: 400 clamp(25px, 3.2vh, 29px)/1 var(--f-display); color: #f4f1e2; letter-spacing: .03em;
   text-shadow: 2px 2px 0 var(--moss-lo); background: var(--moss); border: 3px solid var(--gold-lo);
@@ -281,10 +286,67 @@ const TRACK = `
 .rr-quota:empty { display: none; }
 `;
 
+const SCENE = `
+.rr-rivet { position: absolute; width: 8px; height: 8px; background: var(--gold); pointer-events: none;
+  box-shadow: inset -2px -2px 0 var(--gold-lo), inset 2px 2px 0 var(--gold-hi), 0 0 0 2px #000; }
+.rr-rivet.tl { top: -6px; left: -6px; } .rr-rivet.tr { top: -6px; right: -6px; }
+.rr-rivet.bl { bottom: -6px; left: -6px; } .rr-rivet.br { bottom: -6px; right: -6px; }
+.rr-wall-shadow { filter: drop-shadow(3px 5px 0 rgba(0,0,0,.5)); }
+.rr-soft-shadow { filter: drop-shadow(2px 3px 0 rgba(0,0,0,.38)); }
+
+.rr-beam { flex: none; position: relative; z-index: 2; height: clamp(22px, 3.6vh, 36px); margin-inline: -48px;
+  background: var(--rr-art-beam, var(--wood)) repeat-x; background-size: auto 100%; box-shadow: 0 6px 0 #0007;
+  pointer-events: none; }
+.rr-beam .rr-bracket { position: absolute; top: 0; }
+
+/* two lanterns hang from the beam on chains, either side of the plaque */
+.rr-lantern-wrap { position: relative; display: flex; flex-direction: column; align-items: center; pointer-events: none;
+  margin-top: calc(-1 * var(--hall-top)); }
+.rr-lantern-wrap.l { grid-column: 2; } .rr-lantern-wrap.r { grid-column: 4; }
+.rr-lantern-wrap .rr-chain { height: clamp(18px, 4vh, 40px); width: auto; }
+.rr-lantern-wrap .rr-lamp { height: clamp(42px, 7.4vh, 72px); width: auto; }
+.rr-lantern-wrap::before {
+  content: ""; position: absolute; left: 50%; top: 68%; z-index: -1; pointer-events: none;
+  width: 220px; height: 220px; transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(240,138,44,.24) 0, rgba(240,138,44,.09) 38%, transparent 70%);
+  animation: rr-flicker 2.4s steps(6) infinite; }
+@keyframes rr-flicker { 0%, 100% { opacity: 1; } 30% { opacity: .82; } 55% { opacity: .95; } 80% { opacity: .78; } }
+.rr-plaque .rr-plaque-chain { position: absolute; top: -42px; }
+
+.rr-hall .rr-prop { position: absolute; z-index: 0; pointer-events: none; width: auto; }
+.rr-hall .rr-vein { height: clamp(24px, 4.4vh, 48px); }
+.rr-hall .rr-crack { height: clamp(28px, 4.4vh, 44px); opacity: .9; }
+.rr-hall .rr-moss { height: clamp(10px, 1.8vh, 18px); opacity: .9; }
+
+.rr-side { position: absolute; top: clamp(48px, 9vh, 96px); bottom: calc(-1 * (var(--floor-gap) + var(--floor-h) * .58));
+  width: 150px; display: none; flex-direction: column; align-items: center; gap: clamp(24px, 5vh, 56px); pointer-events: none; }
+.rr-side.l { right: calc(100% + 28px); }
+.rr-side.r { left: calc(100% + 28px); }
+.rr-side .rr-grow { flex: 1; }
+.rr-floor-row { display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+.rr-side.l .rr-floor-row { transform: translateX(-40px); }
+.rr-side.r .rr-floor-row { transform: translateX(40px); }
+.rr-standing { position: relative; display: inline-block; }
+.rr-standing::after { content: ""; position: absolute; z-index: -1; left: 4%; right: -16%; bottom: -6px; height: 13px;
+  background: rgba(0,0,0,.6); clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%); }
+
+.rr-floor { position: fixed; left: 0; right: 0; bottom: 0; height: var(--floor-h); z-index: 0; pointer-events: none;
+  background: var(--rr-art-floor, #101114) repeat-x; background-size: auto 100%; }
+.rr-critters { position: fixed; left: 0; right: 0; bottom: 0; height: var(--floor-h); z-index: 2; pointer-events: none; }
+.rr-critters .rr-rat { position: absolute; left: 0; bottom: 10%; height: calc(var(--floor-h) * .5); width: auto;
+  transform: translateX(-90px); animation: rr-scurry 24s linear infinite; animation-delay: 3s;
+  filter: drop-shadow(2px 2px 0 rgba(0,0,0,.45)); }
+@keyframes rr-scurry { 0% { transform: translateX(-90px); } 30%, 100% { transform: translateX(calc(100vw + 90px)); } }
+`;
+
 const RESPONSIVE = `
-@media (max-width: 1180px) {
+@media (min-width: 1600px) { .rr-side { display: flex; } }
+@media (max-width: 760px) { .rr-hall .rr-prop { display: none; } }
+/* tall enough, or too narrow, for the readings to sit beside the board: they go
+   under it, at a fixed share of the height so a run never resizes the track */
+@media (max-width: 1180px), (min-height: 860px) {
   .rr-track-body { flex-direction: column; }
-  .rr-readings { width: auto; max-height: 32%; }
+  .rr-readings { width: auto; height: 30%; }
 }
 @media (max-height: 720px) {
   :root { --hall-top: 9px; }
@@ -299,10 +361,13 @@ const RESPONSIVE = `
 @media (max-width: 900px), (max-height: 560px) {
   html, body { height: auto; }
   body { display: block; height: auto; overflow: visible; padding-bottom: 24px; }
+  .rr-floor, .rr-critters { display: none; }
+  .rr-side { bottom: 0; }
   #app, .rr-app, .rr-layout, .rr-board-body, .rr-track-body, .rr-viewport { flex: none; }
   .rr-board-body { overflow: visible; }
+  .rr-plan-foot .rr-failure { max-height: none; }
   .rr-viewport { container-type: inline-size; min-height: 0; }
-  .rr-readings { max-height: none; }
+  .rr-readings { height: auto; }
 }
 @supports (width: round(down, 10px, 4px)) {
   @media (max-width: 900px), (max-height: 560px) {
@@ -317,6 +382,8 @@ const RESPONSIVE = `
 @media (max-width: 640px) {
   .rr-hall { grid-template-columns: 1fr; justify-items: center; }
   .rr-plaque { grid-column: 1; padding-inline: var(--s4); }
+  .rr-lantern-wrap, .rr-plaque .rr-plaque-chain { display: none; }
+  .rr-beam { margin-inline: -16px; }
   /* every pixel of width goes to the board: ten 32-pixel squares fit at 390 */
   .rr-board { padding: var(--s4) var(--s2); }
   .rr-viewport { padding: var(--s1); }
@@ -326,8 +393,9 @@ const RESPONSIVE = `
   .rr-cart[data-end="arrived"] { opacity: .4; }
   .rr-cart[data-end="derailed"] { rotate: 35deg; }
   .rr-cart[data-end="wrong_tunnel"] { opacity: .15; }
-  .rr-track-board[aria-busy="true"] .rr-status::before { animation: none; }
+  .rr-track-board[aria-busy="true"] .rr-status::before, .rr-lantern-wrap::before { animation: none; }
+  .rr-critters .rr-rat { animation: none; transform: none; left: 62%; }
 }
 `;
 
-export const STYLE = [FONT_FACES, TOKENS, BASE, LAYOUT, FORM, TRACK, RESPONSIVE].join('\n');
+export const STYLE = [FONT_FACES, TOKENS, BASE, LAYOUT, FORM, TRACK, SCENE, RESPONSIVE].join('\n');

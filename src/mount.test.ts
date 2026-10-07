@@ -910,6 +910,14 @@ describe('what the page says it is doing', () => {
     expect(app.status.textContent).toBe(UI_TEXT.rolling);
   });
 
+  it('says the cart is on the track while it rolls', async () => {
+    const app = await ready();
+    const writes = watchText(app.status);
+    app.send.click();
+    await settle();
+    expect(writes).toEqual([UI_TEXT.rolling, UI_TEXT.onTrack, 'The cart rolled into the mine. 2 of 3 stars.']);
+  });
+
   it('writes the status line once per change, not once per call', async () => {
     const app = await ready();
     const writes = watchText(app.status);
