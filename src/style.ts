@@ -97,9 +97,19 @@ body::before {
 .rr-icon-crate-straight::before { width: 32px; height: 32px; background-image: var(--rr-art-straight-0, none); }
 .rr-icon-crate-curve::before { width: 32px; height: 32px; background-image: var(--rr-art-curve-0, none); }
 .rr-icon-crate-cross::before { width: 32px; height: 32px; background-image: var(--rr-art-cross-0, none); }
-.rr-icon-device-choice::before { width: 32px; height: 32px; background-image: var(--rr-art-device-choice, none); }
-.rr-icon-device-noul::before { width: 32px; height: 32px; background-image: var(--rr-art-device-noul, none); }
-.rr-icon-device-score::before { width: 32px; height: 32px; background-image: var(--rr-art-device-score, none); }
+/* a switch's badge: a glyph for its kind and its letter, in ink on a parchment
+   plate. Sized in --u, one sprite pixel, so its glyph is drawn at a whole scale
+   wherever it is: a sixteenth of a square on the board, three pixels in the list */
+.rr-badge { --u: 3px; display: inline-flex; align-items: center; gap: var(--u); pointer-events: none;
+  height: calc(var(--u) * 7); padding: 0 var(--u) 0 var(--u);
+  font: 400 calc(var(--u) * 7.4)/1 var(--f-num); color: #1a1410; background: var(--parch);
+  box-shadow: inset 0 calc(var(--u) * -1) 0 var(--parch-lo), 0 0 0 var(--u) #1a1410, var(--u) var(--u) 0 var(--u) rgba(0,0,0,.6); }
+.rr-badge::before { content: ""; flex: none; width: calc(var(--u) * 5); height: calc(var(--u) * 5);
+  background: 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
+:root:not([data-art]) .rr-badge::before { display: none; }
+.rr-type-choice::before { background-image: var(--rr-art-type-choice, none); }
+.rr-type-noul::before { background-image: var(--rr-art-type-noul, none); }
+.rr-type-score::before { background-image: var(--rr-art-type-score, none); }
 `;
 
 const LAYOUT = `
@@ -166,11 +176,14 @@ const FORM = `
 .rr-switches { margin-bottom: clamp(8px, 1.5vh, 16px); }
 .rr-switches h3 { margin: 0 0 var(--s2); font: 400 22px/1 var(--f-display); color: var(--gold-hi); letter-spacing: .03em; }
 .rr-switches > ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s2); }
-.rr-switch { display: grid; grid-template-columns: 32px 1fr; column-gap: var(--s2); align-items: start;
-  padding: var(--s2); background: var(--well); border: 2px solid var(--line); box-shadow: inset 0 3px 0 #0009; }
-.rr-switch::before { grid-row: 1 / span 2; }
+.rr-switch { display: grid; grid-template-columns: auto 1fr; column-gap: var(--s3); align-items: start;
+  padding: var(--s2) var(--s2) var(--s2) var(--s3); background: var(--well); border: 2px solid var(--line); box-shadow: inset 0 3px 0 #0009; }
+.rr-switch > .rr-badge { grid-row: 1 / span 2; margin-top: 3px; }
 .rr-switch-title { margin: 0; font-weight: 700; font-size: 15.5px; line-height: 1.3; }
-.rr-exits { margin: var(--s1) 0 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 14.5px; line-height: 1.3; }
+.rr-exits { margin: var(--s1) 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14.5px; line-height: 1.3; }
+/* the mark that stands at the end of the answer's branch on the board */
+.rr-exit-mark { display: inline-block; width: 18px; height: 18px; margin-right: 6px; vertical-align: -3px;
+  background: var(--mark, none) 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
 .rr-exits strong { color: var(--gold-hi); }
 .rr-exit-side { color: var(--ink-dim); white-space: nowrap; }
 .rr-taboo { margin-bottom: clamp(8px, 1.5vh, 16px); }
@@ -222,7 +235,7 @@ const TRACK = `
   display: grid; align-items: safe center; justify-items: safe center;
   padding: clamp(8px, 1.6vh, 24px); background: var(--well);
   border: 2px solid #0008; box-shadow: inset 0 0 0 2px #2a2d33; }
-.rr-grid { --cell: 48px; position: relative; display: grid;
+.rr-grid { --cell: 48px; --u: calc(var(--cell) / 16); position: relative; display: grid;
   grid-template-columns: repeat(var(--w), var(--cell)); grid-auto-rows: var(--cell);
   box-shadow: 0 0 0 2px #000, 4px 5px 0 #0008; transition: opacity .2s; }
 @supports (width: round(down, 10px, 4px)) {
@@ -233,7 +246,7 @@ const TRACK = `
 .rr-cell:focus-visible { z-index: 2; }
 .rr-piece { position: absolute; inset: 0; display: grid; place-items: center;
   font: 400 calc(var(--cell) * .7)/1 var(--f-num); color: var(--ink-dim);
-  background-image: var(--dev, none), var(--art, none); background-size: 100% 100%; background-repeat: no-repeat;
+  background-image: var(--art, none); background-size: 100% 100%; background-repeat: no-repeat;
   image-rendering: pixelated; pointer-events: none; }
 :root[data-art] .rr-piece { color: transparent; }
 .rr-cell[data-mode="rotatable"]::after, .rr-cell[data-mode="placed"]::after {
@@ -244,9 +257,26 @@ const TRACK = `
 .rr-cell[data-kind="switch"], .rr-cell[data-mode="fixed"] { cursor: default; }
 /* an empty square takes a click only with a piece from the crate in hand */
 .rr-grid:not([data-tool="place"]) > [data-kind="empty"] { cursor: default; }
-.rr-badge { position: absolute; left: 1px; top: 1px; min-width: 14px; padding: 0 2px; pointer-events: none;
-  font: 400 calc(var(--cell) * .32)/1 var(--f-num); color: var(--ink-dark); background: var(--parch);
-  box-shadow: 1px 1px 0 #000; text-align: center; }
+/* a switch on the board: its badge hangs half over the corner across from the
+   entry, where no branch runs; a mark stands between the rails at the end of
+   every branch. After a run the branch the cart took stays bright, its mark
+   ringed in gold, and the others go dark. */
+.rr-grid .rr-badge { --u: calc(var(--cell) / 16); position: absolute; z-index: 2; }
+.rr-badge[data-corner="ne"] { top: calc(var(--u) * -3); right: calc(var(--u) * -6); }
+.rr-badge[data-corner="nw"] { top: calc(var(--u) * -3); left: calc(var(--u) * -6); }
+.rr-badge[data-corner="se"] { bottom: calc(var(--u) * -3); right: calc(var(--u) * -6); }
+.rr-badge[data-corner="sw"] { bottom: calc(var(--u) * -3); left: calc(var(--u) * -6); }
+.rr-mark { position: absolute; z-index: 1; width: calc(var(--u) * 6); height: calc(var(--u) * 6); pointer-events: none;
+  background: var(--mark, none) 0 0 / 100% 100% no-repeat; image-rendering: pixelated;
+  filter: drop-shadow(var(--u) var(--u) 0 rgba(0,0,0,.55)); }
+.rr-mark[data-side="N"] { top: 0; left: calc(var(--u) * 5); }
+.rr-mark[data-side="S"] { bottom: 0; left: calc(var(--u) * 5); }
+.rr-mark[data-side="E"] { right: 0; top: calc(var(--u) * 5); }
+.rr-mark[data-side="W"] { left: 0; top: calc(var(--u) * 5); }
+.rr-cell[data-taken] .rr-mark { opacity: .6; filter: grayscale(.6) brightness(.8); }
+.rr-cell[data-taken="N"] .rr-mark[data-side="N"], .rr-cell[data-taken="E"] .rr-mark[data-side="E"],
+.rr-cell[data-taken="S"] .rr-mark[data-side="S"], .rr-cell[data-taken="W"] .rr-mark[data-side="W"] {
+  opacity: 1; filter: none; box-shadow: 0 0 0 var(--u) var(--gold-hi); }
 .rr-cell[data-trail] .rr-piece { box-shadow: inset 0 0 0 999px rgba(242,207,114,.14); }
 .rr-track-board[aria-busy="true"] .rr-cell { cursor: progress; }
 .rr-empty { margin: 0; display: grid; place-items: center; padding: var(--s4); min-height: 160px; align-self: stretch; justify-self: stretch;

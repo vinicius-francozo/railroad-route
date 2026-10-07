@@ -7,8 +7,11 @@
  * rectangles in a function, so each piece stays editable as text and the page
  * downloads no image at all.
  *
- * Browser only: every function here creates a `<canvas>` through `document`.
- * `scene.ts` is the one caller, and it checks for a document before it calls.
+ * Browser only: every drawing function here creates a `<canvas>` through
+ * `document`. `scene.ts` is the one caller, and it checks for a document
+ * before it calls. The few plain values exported beside them — which exit
+ * marks exist (`ORE_NAMES`, `METER_MAX`, `PIP_COUNT`, `exitMarkNames`) — draw
+ * nothing, so `messages.ts` reads them anywhere, the tests' Node included.
  */
 
 /** A drawn sprite, at one pixel per pixel. The page scales it with CSS. */
@@ -29,6 +32,8 @@ export const PAL: Readonly<Record<string, string>> = {
   m: '#2f5d33', M: '#4c8a43', c: '#e2dccb', C: '#a59f8e', p: '#e8d6a8', P: '#bfa877',
   i: '#50545c', I: '#8a909a',
   v: '#57496a', V: '#7d6c94', b: '#0e1a2e', B: '#1c2f4d', q: '#dfe8f2',
+  // This page's own: coal and crystal, the cargo the switches' marks show.
+  a: '#55525e', A: '#a9a6b4', Q: '#36343c', j: '#3fb6d0', J: '#bff2fb', l: '#1f6f8f',
 };
 
 /** Mulberry32. Decoration only: nothing in the game reads it. */
@@ -134,13 +139,26 @@ type Reading = { d: number; nx: number; ny: number };
 type Band = (x: number, y: number) => Reading | undefined;
 type Tones = { light: string; dark: string; half: number };
 
+/** The tones a piece of track is laid in: its rails, its sleepers, and its sleepers across a bend. */
+type Finish = { rail: Tones; sleeper: Tones; bent: Tones };
+
 const RAIL: Tones = { light: 'S', dark: 'i', half: 1 };
 const SLEEPER: Tones = { light: 'h', dark: 'w', half: 1 };
 /** A sleeper across a bend is thinner: on the diagonal a band of 1 is three pixels thick. */
 const BENT_SLEEPER: Tones = { light: 'h', dark: 'w', half: 0.75 };
 const BUFFER: Tones = { light: 'R', dark: 'r', half: 1.5 };
 
-/** Paints `bands` in `tones`: their shadows first, then the bands over them. */
+const LIT: Finish = { rail: RAIL, sleeper: SLEEPER, bent: BENT_SLEEPER };
+/**
+ * The branches of a switch the cart did not take, after a run: the same track
+ * in the tones of the ground, so the one it took is the only bright way out.
+ */
+const DIM: Finish = {
+  rail: { light: '#5a5048', dark: '#3a332c', half: 1 },
+  sleeper: { light: '#3a2a1e', dark: '#2a1e15', half: 1 },
+  bent: { light: '#3a2a1e', dark: '#2a1e15', half: 0.75 },
+};
+
 function paintBands(P: Pen, bands: readonly Band[], tones: Tones): void {
   for (const pass of ['shadow', 'body'] as const) {
     for (let y = 0; y < 16; y++) {
@@ -229,10 +247,10 @@ function arcSleepers(arc: Arc): Band[] {
 }
 
 /** Draws runs and arcs as one piece of track: every sleeper first, then every rail. */
-function track(P: Pen, runs: readonly Run[], arcs: readonly Arc[]): void {
-  paintBands(P, runs.flatMap(runSleepers), SLEEPER);
-  paintBands(P, arcs.flatMap(arcSleepers), BENT_SLEEPER);
-  paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], RAIL);
+function track(P: Pen, runs: readonly Run[], arcs: readonly Arc[], finish: Finish = LIT): void {
+  paintBands(P, runs.flatMap(runSleepers), finish.sleeper);
+  paintBands(P, arcs.flatMap(arcSleepers), finish.bent);
+  paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], finish.rail);
 }
 
 function tile(draw: (P: Pen) => void): Sprite {
@@ -366,55 +384,140 @@ function groundTile(): Sprite {
   return cv;
 }
 
-/** The track under a switch: from its entry to every side it can send the cart to. */
-function junctionTile(entry: Side, exits: readonly Side[]): Sprite {
+/**
+ * The track under a switch: from its entry to every side it can send the cart
+ * to, lit, or in the ground's tones for the branches a run did not take.
+ *
+ * Rails only, on a bed of dark ballast that sets the square apart: the
+ * sleepers of two or three branches laid over each other in sixteen pixels are
+ * a tangle, and the rails alone read as the ways out. With `bed` false it is
+ * the rails alone, to lay one lit branch over a dimmed junction.
+ */
+function junctionTile(entry: Side, exits: readonly Side[], finish: Finish = LIT, bed = true): Sprite {
   return tile((P) => {
     const { runs, arcs } = laid(entry, exits);
-    track(P, runs, arcs);
+    if (bed) {
+      P(0, 0, 16, 16, '#120d09');
+      P(1, 1, 14, 14, '#3a2b1f');
+      P(1, 1, 14, 1, '#4d3a2a');
+      P(1, 1, 1, 14, '#4d3a2a');
+      P(2, 14, 13, 1, '#2a1f16');
+      P(14, 2, 1, 13, '#2a1f16');
+    }
+    paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], finish.rail);
   });
 }
 
-// --- The three switches Jev works -----------------------------------------------
+// --- What a switch shows ----------------------------------------------------------
 //
-// Each stands in the middle of its junction, drawn the right way up whatever way
-// the track runs, and each is a different machine so a glance tells them apart:
-// a lever with a target disc picks one of a few ways (`choice`), a barrier arm
-// says yes or no (`noul`), and a balance weighs the sentence on a scale (`score`).
+// A switch is its track and nothing standing on it: the branches from the entry
+// to every exit, a mark at the end of each branch that says which answer leads
+// there, and one badge with the switch's letter and a glyph for its kind. The
+// marks are the same pictures the list of questions puts beside each answer,
+// so the board and the list are read with one key.
+//
+// A mark is 6 × 6 with its outline, sized so that, at the end of a branch, it
+// sits between the two rails and covers only their inner pixel: the track is
+// still seen running to the edge on both sides of it.
 
-function leverDevice(): Sprite {
-  return tile((P) => {
-    P(5, 1, 6, 6, 'k'); P(6, 2, 4, 4, 'R'); P(8, 4, 2, 2, 'r'); P(6, 3, 4, 1, 'c'); P(6, 2, 1, 1, '#e0705f');
-    P(7, 7, 2, 5, 'k'); P(7, 7, 1, 5, 'I'); P(8, 7, 1, 5, 'i');
-    P(9, 8, 4, 2, 'k'); P(10, 8, 2, 1, 'I'); P(12, 7, 2, 2, 'k'); P(12, 7, 1, 1, 'S');
-    P(4, 11, 8, 4, 'k'); P(5, 12, 6, 1, 'h'); P(5, 13, 6, 1, 'w');
-  });
+/** Rows for `fromRows`: an ore, as a lump on the end of a branch. */
+const ORE_MARKS: Readonly<Record<string, readonly string[]>> = {
+  coal: ['..kkk.', '.kAAak', 'kAaaak', 'kaaaQk', 'kaQQQk', '.kkkk.'],
+  gold: ['.kkk..', 'kGGgk.', 'kGggok', 'kgggok', '.kgook', '..kkk.'],
+  crystal: ['..kk..', '.kJjk.', 'kJjjlk', 'kjjjlk', '.kjlk.', '..kk..'],
+};
+
+/**
+ * A yes or a no, as the lamps and signs a miner knows: a green chip with a
+ * lit lamp in it, and a red "no entry" chip with a bar. Told apart by shape as
+ * well as colour. (A tick and a cross were tried first: in four pixels they
+ * read as a checker and a ring.)
+ */
+const ANSWER_MARKS: Readonly<Record<string, readonly string[]>> = {
+  yes: ['kkkkkk', 'kMMMMk', 'kMccMk', 'kMccMk', 'kmmmmk', 'kkkkkk'],
+  no: ['kkkkkk', 'kRRRRk', 'kcccck', 'kcccck', 'krrrrk', 'kkkkkk'],
+};
+
+/** A colour per option for a choice whose options have no picture of their own. */
+const PIP_COLOURS: readonly (readonly [string, string])[] = [
+  ['#6aa6ff', '#3d6fc4'],
+  ['#d08ae8', '#8f4fb0'],
+  ['#f2a65a', '#b86a22'],
+  ['#9be08d', '#4c8a43'],
+];
+
+/** The most levels a scale's mark draws as a meter; past that, its levels get pips. */
+export const METER_MAX = 4;
+
+/**
+ * Level `level` of a scale of `levels`: an iron chip with a rising staircase
+ * of bars, lit up to and including that level. "Calm" lights the short bar,
+ * "rush" all of them.
+ */
+function meterMark(level: number, levels: number): Sprite {
+  const cv = canvas(6, 6);
+  const P = pen(context(cv));
+  P(0, 0, 6, 6, 'k');
+  P(1, 1, 4, 4, 'I');
+  for (let bar = 0; bar < levels; bar++) {
+    const x = 5 - levels + bar;
+    const height = 4 - (levels - 1 - bar);
+    const lit = bar <= level;
+    P(x, 5 - height, 1, height, lit ? 'F' : 'd');
+    if (lit) P(x, 5 - height, 1, 1, 'y');
+  }
+  return cv;
 }
 
-function gateDevice(): Sprite {
-  return tile((P) => {
-    P(1, 3, 4, 12, 'k'); P(2, 4, 1, 10, 'I'); P(3, 4, 1, 10, 'i');
-    P(0, 13, 6, 3, 'k'); P(1, 14, 4, 1, 'w');
-    P(4, 6, 12, 4, 'k');
-    for (let x = 5; x < 15; x++) {
-      const red = ((x - 5) >> 1) % 2 === 0;
-      P(x, 7, 1, 1, red ? 'R' : 'c'); P(x, 8, 1, 1, red ? 'r' : 'C');
-    }
-    P(1, 5, 4, 3, 'k'); P(2, 6, 2, 1, 'g');
-  });
+function pipMark(index: number): Sprite {
+  const [light, dark] = PIP_COLOURS[index % PIP_COLOURS.length] ?? ['#c9c9c9', '#7a7a7a'];
+  return maskIcon(6, 6, (x, y) => !((x === 0 || x === 5) && (y === 0 || y === 5)), (x, y) => (x + y <= 4 ? light : dark));
 }
 
-function scaleDevice(): Sprite {
-  return tile((P) => {
-    P(7, 1, 2, 2, 'k'); P(7, 1, 1, 1, 'G');
-    P(1, 3, 14, 3, 'k'); P(2, 4, 12, 1, 'G'); P(7, 4, 2, 1, 'o');
-    P(7, 6, 2, 7, 'k'); P(7, 6, 1, 7, 'g'); P(8, 6, 1, 7, 'o');
-    for (const left of [1, 10]) {
-      P(left + 2, 6, 1, 3, 'k');
-      P(left, 9, 5, 3, 'k'); P(left + 1, 9, 3, 1, 'G'); P(left + 1, 10, 3, 1, 'o');
-    }
-    P(4, 13, 8, 3, 'k'); P(5, 14, 6, 1, 'g');
+/**
+ * Every exit mark, by the name `exitMark` in `messages.ts` gives it: an ore,
+ * a yes or a no, a level of a scale (`level-<level>-<levels>`), or a pip.
+ */
+function exitMarkSprites(): Record<string, Sprite> {
+  const marks: Record<string, Sprite> = {};
+  for (const [name, rows] of Object.entries({ ...ORE_MARKS, ...ANSWER_MARKS })) marks[name] = fromRows(rows);
+  for (let levels = 2; levels <= METER_MAX; levels++) {
+    for (let level = 0; level < levels; level++) marks[`level-${String(level)}-${String(levels)}`] = meterMark(level, levels);
+  }
+  PIP_COLOURS.forEach((_, index) => {
+    marks[`pip-${String(index)}`] = pipMark(index);
   });
+  return marks;
 }
+
+/** The names of every exit mark this module draws, without drawing them. */
+export function exitMarkNames(): string[] {
+  const names = [...Object.keys(ORE_MARKS), ...Object.keys(ANSWER_MARKS)];
+  for (let levels = 2; levels <= METER_MAX; levels++) {
+    for (let level = 0; level < levels; level++) names.push(`level-${String(level)}-${String(levels)}`);
+  }
+  PIP_COLOURS.forEach((_, index) => names.push(`pip-${String(index)}`));
+  return names;
+}
+
+/** The names of the options an ore mark exists for. */
+export const ORE_NAMES: readonly string[] = Object.keys(ORE_MARKS);
+
+/** How many options a choice can tell apart with pips. */
+export const PIP_COUNT = PIP_COLOURS.length;
+
+/**
+ * The glyph on a switch's badge, in ink on the parchment: a fork for a choice
+ * between ways, a question mark for the gate's yes or no, a rising staircase
+ * for the scale — the shape its meters light up. 5 × 5, no outline: the badge
+ * is the outline. (A barrier arm and a balance were tried for the last two and
+ * did not read at 10 pixels.)
+ */
+const TYPE_GLYPHS: Readonly<Record<string, readonly string[]>> = {
+  choice: ['k.k.k', 'k.k.k', '.kkk.', '..k..', '..k..'],
+  noul: ['.kkk.', 'k...k', '...k.', '.....', '..k..'],
+  score: ['....k', '...kk', '..kkk', '.kkkk', 'kkkkk'],
+};
 
 // --- The cart -------------------------------------------------------------------
 
@@ -734,12 +837,13 @@ export function drawSprites(): Readonly<Record<string, readonly Sprite[]>> {
 }
 
 /**
- * Every piece of track and every switch, as CSS-ready sprites, by name.
+ * Every piece of track, as CSS-ready sprites, by name.
  *
  * The names are what `mount.ts` asks the stylesheet for: `straight-0` to
- * `straight-3` and the same for every turnable kind, `rock`, `ground`,
- * `junction-<entry>-<exits>` with the exits in N, E, S, W order, and
- * `device-<question type>`.
+ * `straight-3` and the same for every turnable kind, `rock`, `ground`, and
+ * `junction-<entry>-<exits>` with the exits in N, E, S, W order — lit, or as
+ * `junction-dim-…`, the branches a run did not take — and `branch-<entry>-<exit>`,
+ * the one branch it took, lit, to lay over the dimmed junction.
  */
 export function drawTrackArt(): Readonly<Record<string, Sprite>> {
   const art: Record<string, Sprite> = { ground: groundTile(), rock: rockTile() };
@@ -756,18 +860,23 @@ export function drawTrackArt(): Readonly<Record<string, Sprite>> {
     for (let mask = 1; mask < 8; mask++) {
       const exits = others.filter((_, i) => (mask >> i) & 1);
       art[`junction-${entry}-${exits.join('')}`] = junctionTile(entry, exits);
+      art[`junction-dim-${entry}-${exits.join('')}`] = junctionTile(entry, exits, DIM);
     }
+    for (const exit of others) art[`branch-${entry}-${exit}`] = junctionTile(entry, [exit], LIT, false);
   }
-  art['device-choice'] = leverDevice();
-  art['device-noul'] = gateDevice();
-  art['device-score'] = scaleDevice();
   art['cart'] = cartStrip();
   return art;
 }
 
-/** The icons the page's labels and buttons wear, as CSS backgrounds. */
+/**
+ * The icons the page's labels, buttons and switches wear, as CSS backgrounds:
+ * `mark-<name>` for every exit mark and `type-<question type>` for every
+ * badge glyph, besides the labels' own.
+ */
 export function drawIcons(): Readonly<Record<string, Sprite>> {
   const icons: Record<string, Sprite> = { key: keyIcon() };
   for (const [name, rows] of Object.entries(ICON_ROWS)) icons[name] = fromRows(rows);
+  for (const [name, mark] of Object.entries(exitMarkSprites())) icons[`mark-${name}`] = mark;
+  for (const [name, rows] of Object.entries(TYPE_GLYPHS)) icons[`type-${name}`] = fromRows(rows);
   return icons;
 }

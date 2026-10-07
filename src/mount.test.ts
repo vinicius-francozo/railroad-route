@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PublicLevel, RunRequest, RunResponse } from './contract';
 import { GLOBAL_TABOO, UI_TEXT } from './messages';
-import { mount, mountApp } from './mount';
+import { badgeCorner, mount, mountApp } from './mount';
 import type { AppServices } from './mount';
 import { STARS_ITEM } from './progress';
 import type { ProgressStore } from './progress';
@@ -140,6 +140,16 @@ function byClass(root: FakeElement, className: string): FakeElement {
   const found = descendants(root).find((node) => node.className.split(' ').includes(className));
   if (found === undefined) throw new Error(`no element with class ${className}`);
   return found;
+}
+
+/** The exit marks a switch square shows, by the side each stands on. */
+function marksOf(cell: FakeElement): Record<string, string> {
+  const marks: Record<string, string> = {};
+  for (const node of cell.children.filter((child) => child.className === 'rr-mark')) {
+    const name = /--rr-art-mark-([\w-]+),/.exec(node.attributes.get('style') ?? '')?.[1] ?? '';
+    marks[node.attributes.get('data-side') ?? '?'] = name;
+  }
+  return marks;
 }
 
 /** Every write to `element.textContent`, in order: a live region announces each one. */
@@ -466,8 +476,7 @@ describe('loading the levels', () => {
     expect(app.text()).toContain('Forbidden words: gold, ouro.');
     expect(app.text()).toContain('Up to 5 words');
     expect(app.cell(3, 1).attributes.get('aria-label')).toContain('Switch A');
-    expect(app.art(3, 1)).toContain('--rr-art-junction-W-ES');
-    expect(app.art(3, 1)).toContain('--rr-art-device-choice');
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-junction-W-ES, none)');
     expect(app.art(4, 1)).toContain('--rr-art-mine-0');
   });
 
@@ -511,7 +520,8 @@ describe('loading the levels', () => {
     expect(app.text()).toContain('Is the cargo dangerous?');
     expect(app.text()).not.toContain('What does the cart carry?');
     expect(app.text()).toContain('yes (Jev at least 50% sure)');
-    expect(app.art(3, 1)).toContain('--rr-art-device-noul');
+    expect(byClass(app.cell(3, 1), 'rr-badge').className).toBe('rr-badge rr-type-noul');
+    expect(marksOf(app.cell(3, 1))).toEqual({ E: 'no', S: 'yes' });
   });
 
   for (const [what, options] of [
@@ -528,6 +538,111 @@ describe('loading the levels', () => {
       expect(app.send.disabled).toBe(true);
     });
   }
+});
+
+describe('a switch, on the board and in the list', () => {
+  it('shows its track and one badge, with its letter and a glyph for its kind, hidden from a screen reader', async () => {
+    const app = mountHarness();
+    await settle();
+    const square = app.cell(3, 1);
+    const badges = descendants(square).filter((node) => node.className.split(' ').includes('rr-badge'));
+    expect(badges).toHaveLength(1);
+    expect(badges[0]?.textContent).toBe('A');
+    expect(badges[0]?.className).toBe('rr-badge rr-type-choice');
+    expect(badges[0]?.attributes.get('aria-hidden')).toBe('true');
+    // The square's own label still says it all in words.
+    expect(square.attributes.get('aria-label')).toBe('Switch A, points: What does the cart carry?, row 2, column 4');
+  });
+
+  it('hangs the badge from the corner across from the entry, where no branch runs', async () => {
+    const app = mountHarness();
+    await settle();
+    expect(byClass(app.cell(3, 1), 'rr-badge').attributes.get('data-corner')).toBe('ne');
+  });
+
+  it('puts at the end of each branch the mark of the answer that leads there, hidden from a screen reader', async () => {
+    const app = mountHarness();
+    await settle();
+    expect(marksOf(app.cell(3, 1))).toEqual({ E: 'gold', S: 'coal' });
+    for (const mark of app.cell(3, 1).children.filter((child) => child.className === 'rr-mark')) {
+      expect(mark.attributes.get('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('wears the same badge in the list, and the same mark beside each answer', async () => {
+    const app = mountHarness();
+    await settle();
+    const item = byClass(app.root, 'rr-switch');
+    expect(item.children[0]?.className).toBe('rr-badge rr-type-choice');
+    expect(item.children[0]?.textContent).toBe('A');
+    const lines = byClass(item, 'rr-exits').children;
+    expect(
+      lines.map((line) => [line.children[1]?.textContent, /--rr-art-mark-([\w-]+),/.exec(line.children[0]?.attributes.get('style') ?? '')?.[1]]),
+    ).toEqual([
+      ['coal', 'coal'],
+      ['gold', 'gold'],
+    ]);
+  });
+
+  it('lights the branch the cart took as it goes, and dims the rest', async () => {
+    const app = await ready();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.get('data-taken')).toBe('E');
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-branch-W-E, none), var(--rr-art-junction-dim-W-ES, none)');
+    // The badge and the marks are still there, to read the dimmed ways against.
+    expect(marksOf(app.cell(3, 1))).toEqual({ E: 'gold', S: 'coal' });
+    expect(byClass(app.cell(3, 1), 'rr-badge').textContent).toBe('A');
+  });
+
+  it('lights the branch at once when motion is reduced', async () => {
+    const app = await ready({ still: true });
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.get('data-taken')).toBe('E');
+  });
+
+  it('lights nothing at a switch the cart never left', async () => {
+    const run: RunResponse = { ...ARRIVED, outcome: 'derailed', readings: [], stars: 0, path: ARRIVED.path.slice(0, 2) };
+    const app = await ready({ runs: [{ status: 200, body: run }] });
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-junction-W-ES, none)');
+  });
+
+  it('puts the junction back as it was once the track is edited, or the next run is sent', async () => {
+    const app = await ready({ runs: [{ status: 200, body: ARRIVED }, { status: 200, body: ARRIVED }, 'hang'] });
+    app.send.click();
+    await settle();
+    app.cell(1, 1).click();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-junction-W-ES, none)');
+
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.get('data-taken')).toBe('E');
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+  });
+});
+
+describe('where a switch’s badge hangs', () => {
+  it('goes to a corner across from the entry, the top one when it can', () => {
+    expect(badgeCorner({ x: 3, y: 3, entry: 'W' }, 8, 8)).toBe('ne');
+    expect(badgeCorner({ x: 3, y: 3, entry: 'E' }, 8, 8)).toBe('nw');
+    expect(badgeCorner({ x: 3, y: 3, entry: 'S' }, 8, 8)).toBe('ne');
+    expect(badgeCorner({ x: 3, y: 3, entry: 'N' }, 8, 8)).toBe('se');
+  });
+
+  it('moves to the corner that stays on the board at its edges', () => {
+    expect(badgeCorner({ x: 3, y: 0, entry: 'W' }, 8, 8)).toBe('se');
+    expect(badgeCorner({ x: 7, y: 3, entry: 'W' }, 8, 8)).toBe('nw');
+    expect(badgeCorner({ x: 0, y: 3, entry: 'E' }, 8, 8)).toBe('ne');
+    expect(badgeCorner({ x: 3, y: 7, entry: 'N' }, 8, 8)).toBe('ne');
+  });
 });
 
 describe('editing the track', () => {

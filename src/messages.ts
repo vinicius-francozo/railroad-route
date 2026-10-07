@@ -9,6 +9,7 @@
  * the note against.
  */
 
+import { METER_MAX, ORE_NAMES, PIP_COUNT } from './art';
 import type { ErrorKind, Outcome, PieceKind, Reading, Side, Switch } from './contract';
 import type { Square } from './game';
 
@@ -166,8 +167,56 @@ export function sideWord(side: Side): string {
   return SIDE_WORDS[side];
 }
 
-/** One way out of a switch, as the list shows it: the answer, what it means, and where it leads. */
-export type ExitLine = { readonly answer: string; readonly meaning: string; readonly side: string };
+/**
+ * The picture at the end of the branch an answer takes, on the board and
+ * beside the answer in the list, by the name `art.ts` draws it under.
+ *
+ * - a choice's option that is a cargo of the game (`coal`, `gold`, `crystal`)
+ *   is that ore; any other option gets a coloured pip, by its place among the
+ *   options, so two options never share one;
+ * - the gate's answers are `yes` and `no`, a tick and a cross;
+ * - a level of a scale is a meter lit up to that level (`level-<level>-<levels>`).
+ *
+ * An answer the switch does not have gets no picture, `undefined`, and so do
+ * the options of a choice with more than four that are not cargo, and the
+ * levels of a scale longer than a meter draws: the list still names them in
+ * words. No level of the game comes near either.
+ */
+export function exitMark(sw: Switch, result: string): string | undefined {
+  const q = sw.question;
+  switch (q.type) {
+    case 'choice': {
+      const options = Object.keys(q.criteria);
+      const index = options.indexOf(result);
+      if (index < 0) return undefined;
+      if (ORE_NAMES.includes(result)) return result;
+      return options.length <= PIP_COUNT ? `pip-${String(index)}` : undefined;
+    }
+    case 'noul':
+      return result === 'yes' || result === 'no' ? result : undefined;
+    case 'score': {
+      const level = Number(result);
+      const levels = q.criteria.length;
+      if (!/^\d+$/.test(result) || level >= levels || levels > METER_MAX) return undefined;
+      return `level-${String(level)}-${String(levels)}`;
+    }
+    default: {
+      const unreachable: never = q;
+      throw new TypeError(`unknown question: ${JSON.stringify(unreachable)}`);
+    }
+  }
+}
+
+/**
+ * One way out of a switch, as the list shows it: the answer, what it means,
+ * where it leads, and the mark that stands at the end of its branch.
+ */
+export type ExitLine = {
+  readonly answer: string;
+  readonly meaning: string;
+  readonly side: string;
+  readonly mark: string | undefined;
+};
 
 /**
  * The ways out of `sw`, each with the criterion Jev reads the note against.
@@ -184,19 +233,25 @@ export function exitLines(sw: Switch): ExitLine[] {
     const side = sw.exits[result];
     return side === undefined ? '' : sideWord(side);
   };
+  const line = (answer: string, meaning: string, result: string): ExitLine => ({
+    answer,
+    meaning,
+    side: to(result),
+    mark: exitMark(sw, result),
+  });
   switch (q.type) {
     case 'choice':
-      for (const [option, meaning] of Object.entries(q.criteria)) lines.push({ answer: option, meaning, side: to(option) });
+      for (const [option, meaning] of Object.entries(q.criteria)) lines.push(line(option, meaning, option));
       break;
     case 'noul': {
       const bar = sw.threshold === null ? '' : ` (Jev at least ${percent(sw.threshold)} sure)`;
-      lines.push({ answer: `yes${bar}`, meaning: q.criteria.true, side: to('yes') });
-      lines.push({ answer: 'no', meaning: q.criteria.false, side: to('no') });
+      lines.push(line(`yes${bar}`, q.criteria.true, 'yes'));
+      lines.push(line('no', q.criteria.false, 'no'));
       break;
     }
     case 'score':
       q.criteria.forEach((meaning, level) => {
-        lines.push({ answer: String(level), meaning, side: to(String(level)) });
+        lines.push(line(String(level), meaning, String(level)));
       });
       break;
     default: {
