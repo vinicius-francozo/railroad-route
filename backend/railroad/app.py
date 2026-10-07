@@ -32,6 +32,9 @@ Taboo terms or counts, never the sentence, and `InvalidBoard.detail` names a cel
 - **An answer the store cannot keep is still served.** The quota is spent and Jev has answered;
   failing the run there would spend both again on every retry. The write is lost, and the next
   run of the same sentence asks Jev again.
+- **A body the visitor stops sending is `invalid_board`, like any other body that is not a run.**
+  Starlette's `ClientDisconnect` is caught where the body is read, so it never reaches the log as
+  a traceback; the answer goes nowhere, and nothing is written down.
 """
 
 from __future__ import annotations
@@ -49,6 +52,7 @@ import httpx
 from fastapi import FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+from starlette.requests import ClientDisconnect
 
 from railroad.board import build_board
 from railroad.jev import JevRejectedKey, JevUnavailable, JevUnusableAnswer, ask_jev
@@ -323,10 +327,11 @@ def create_app(
 
 
 async def _read_body(request: Request) -> bytes | None:
-    """The request body, or None if it is larger than `MAX_BODY_BYTES`.
+    """The request body, or None if it is larger than `MAX_BODY_BYTES` or never arrives whole.
 
     A declared `content-length` over the cap is refused before a byte is read; the count as the
-    body streams in catches a body that declared none (chunked) or declared less.
+    body streams in catches a body that declared none (chunked) or declared less. A visitor who
+    disconnects before the body ends sent no run, and gets the same None.
     """
     declared = request.headers.get("content-length")
     if declared is not None and not (
@@ -334,10 +339,13 @@ async def _read_body(request: Request) -> bytes | None:
     ):
         return None
     body = bytearray()
-    async for chunk in request.stream():
-        body += chunk
-        if len(body) > MAX_BODY_BYTES:
-            return None
+    try:
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > MAX_BODY_BYTES:
+                return None
+    except ClientDisconnect:
+        return None
     return bytes(body)
 
 

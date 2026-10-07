@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from starlette.types import Message
 
 import railroad.app as app_module
 from railroad.app import MAX_BODY_BYTES, cache_id, create_app, store_from_env
@@ -604,6 +605,61 @@ def test_a_declared_length_over_the_cap_is_refused_unread(
 
     assert error(response) == (422, "invalid_board")
     assert harness.jev.calls == []
+
+
+def test_a_body_the_visitor_stops_sending_is_not_a_run(
+    caplog: pytest.LogCaptureFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
+    caplog.set_level("DEBUG")
+    jev = Jev()
+    app = create_app(
+        levels={"line": LEVEL},
+        tuning=TUNING,
+        store=SpyStore(),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(jev.handle)),
+        server_key=SERVER_KEY,
+        environ={},
+    )
+    first = json.dumps({"level_id": "line", "sentence": SENTENCE}).encode()[:20]
+    incoming: list[Message] = [
+        {"type": "http.request", "body": first, "more_body": True},
+        {"type": "http.disconnect"},
+    ]
+    sent: list[Message] = []
+
+    async def receive() -> Message:
+        return incoming.pop(0)
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    async def post() -> None:
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/api/run",
+            "raw_path": b"/api/run",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"content-type", b"application/json")],
+            "client": ("203.0.113.7", 50000),
+            "server": ("testserver", 80),
+        }
+        async with app.router.lifespan_context(app):
+            await app(scope, receive, send)
+
+    asyncio.run(post())
+
+    assert sent[0]["status"] == 422
+    body = json.loads(b"".join(m.get("body", b"") for m in sent[1:]))
+    assert body == {"error": "invalid_board", "detail": "The request is not a valid run."}
+    assert jev.calls == []
+    # `asyncio.run` itself logs which selector it picked; nothing else may be written down.
+    assert [r for r in caplog.records if r.name != "asyncio"] == []
+    assert capsys.readouterr() == ("", "")
 
 
 def test_a_body_at_the_cap_is_read(harness: Harness) -> None:
