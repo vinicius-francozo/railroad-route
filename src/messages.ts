@@ -308,7 +308,11 @@ const RULE_TITLES: Readonly<Partial<Record<ErrorKind, string>>> = {
   too_long: 'The note is too long. Shorten it and send the cart again.',
   too_many_words: 'The note has too many words for this level. Cut it down and send the cart again.',
   taboo: 'The note uses a forbidden word. Say it another way and send the cart again.',
-  invalid_board: 'The track has a piece where it cannot go. Pick the level again to reset it.',
+  // Not "pick the level again": choosing the option already chosen changes
+  // nothing. The page never offers a move the backend refuses, so a refused
+  // board means the page's copy of the level is out of date, and a reload
+  // fetches it again with the board reset.
+  invalid_board: 'The track has a piece where it cannot go. Reload the page to set the level up again.',
   unknown_level: 'The server does not know this level any more. Reload the page.',
 };
 

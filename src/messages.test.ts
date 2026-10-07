@@ -110,6 +110,10 @@ describe('a refused run, in a sentence', () => {
     for (const title of titles) expect(title).toMatch(/again|key|Reload|another way/);
   });
 
+  it('tells the player to reload for a refused board, the one way the page has to reset it', () => {
+    expect(describeRunError(422, { error: 'invalid_board', detail: 'x' }).title).toContain('Reload the page');
+  });
+
   it('shows the backend’s detail only for a broken rule', () => {
     expect(describeRunError(422, { error: 'taboo', detail: 'forbidden on this level: gold' }).detail).toBe(
       'forbidden on this level: gold',
