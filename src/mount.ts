@@ -734,7 +734,7 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
       // already in view, as on a desktop, nothing moves.
       viewport.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
       await roll(body);
-      stars = recordStars(services.storage, playing.level.id, body.stars);
+      stars = recordStars(services.storage, playing.level.id, body.stars, stars);
       refreshPicker();
       showReadings(body);
       quota.textContent = describeQuota(body.cached === true, body.quota);

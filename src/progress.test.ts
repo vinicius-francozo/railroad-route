@@ -63,4 +63,21 @@ describe('the stars kept in the browser', () => {
     expect(recordStars(blocked, 'first-switch', 2)).toEqual({ 'first-switch': 2 });
     expect(recordStars(nullStore(), 'first-switch', 1)).toEqual({ 'first-switch': 1 });
   });
+
+  it('keeps every level the visit scored when the storage reads back nothing', () => {
+    const first = recordStars(blocked, 'first-switch', 2);
+    const both = recordStars(blocked, 'the-gate', 1, first);
+    expect(both).toEqual({ 'first-switch': 2, 'the-gate': 1 });
+    expect(recordStars(blocked, 'first-switch', 1, both)).toEqual(both);
+    expect(recordStars(nullStore(), 'the-gate', 3, both)).toEqual({ 'first-switch': 2, 'the-gate': 3 });
+  });
+
+  it('takes the best of what the visit knows and what the storage kept', () => {
+    const store = memoryStore('{"first-switch": 3, "the-gate": 1}');
+    expect(recordStars(store, 'the-gate', 2, { 'first-switch': 1, 'the-scale': 2 })).toEqual({
+      'first-switch': 3,
+      'the-gate': 2,
+      'the-scale': 2,
+    });
+  });
 });

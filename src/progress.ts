@@ -58,9 +58,15 @@ export function readStars(store: ProgressStore): Stars {
 /**
  * Keeps `earned` for `levelId` if it beats what was kept, and answers what is
  * kept now. A worse run never takes stars away.
+ *
+ * `known` is what this visit already holds. It counts as kept alongside the
+ * store, the best of the two for each level, because a store that is blocked
+ * reads back nothing: without it, the stars of one level would vanish the
+ * moment another level scored.
  */
-export function recordStars(store: ProgressStore, levelId: string, earned: number): Stars {
-  const kept = readStars(store);
+export function recordStars(store: ProgressStore, levelId: string, earned: number, known: Stars = {}): Stars {
+  const kept: Record<string, number> = { ...known };
+  for (const [level, value] of Object.entries(readStars(store))) kept[level] = Math.max(value, kept[level] ?? 0);
   if (earned <= (kept[levelId] ?? 0)) return kept;
   const updated = { ...kept, [levelId]: earned };
   try {

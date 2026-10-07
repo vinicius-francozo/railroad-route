@@ -806,6 +806,26 @@ describe('sending the cart', () => {
     expect(app.picker.children[0]?.textContent).toBe('1. First Switch ★★');
   });
 
+  it('keeps the stars of every level played this visit when the browser lends no storage', async () => {
+    const blocked: ProgressStore = {
+      getItem: () => {
+        throw new DOMException('blocked', 'SecurityError');
+      },
+      setItem: () => {
+        throw new DOMException('blocked', 'SecurityError');
+      },
+    };
+    const app = await ready({ storage: blocked });
+    app.send.click();
+    await settle();
+    app.picker.value = 'the-gate';
+    app.picker.fire('change');
+    app.type('a box of fireworks');
+    app.send.click();
+    await settle();
+    expect(app.picker.children.map((option) => option.textContent)).toEqual(['1. First Switch ★★', '2. The Gate ★★']);
+  });
+
   it('takes the last run off the board once the track is edited', async () => {
     const app = await ready();
     app.send.click();
