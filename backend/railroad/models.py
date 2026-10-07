@@ -42,6 +42,7 @@ place a piece from the inventory there.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Literal, Protocol
@@ -195,6 +196,11 @@ class Level(_Model):
         kinds = [c.kind for c in self.cells]
         if kinds.count("start") != 1 or kinds.count("mine") != 1:
             raise ValueError("a level has exactly one start and one mine")
+        for term in self.taboo:
+            # The Taboo matches words, so a term with a space, a hyphen or nothing in it could
+            # never match (or, empty, would match everything). See `rules.py`.
+            if not re.fullmatch(r"[^\W_]+", term):
+                raise ValueError(f"taboo term {term!r} is not a single word")
         ids = [s.id for s in self.switches]
         if len(ids) != len(set(ids)):
             raise ValueError("switch ids must be unique")
@@ -249,8 +255,12 @@ class RunRequest(_Model):
 
 
 class PathStep(_Model):
-    """One cell the cart went through. `from_side` is None on the start cell; `to_side` is None
-    on the cell the run ended in."""
+    """One cell the cart went through. `from_side` is None on the start cell.
+
+    `to_side` is None on the last cell of a run that ended inside a piece (`arrived`,
+    `wrong_tunnel`, or a stop at a switch with `needs_jev`). On the last cell of `derailed` and
+    `loop` it is the side the cart left through, so the page can show it rolling off the track.
+    """
 
     x: int
     y: int
