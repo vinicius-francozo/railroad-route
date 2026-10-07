@@ -1,13 +1,14 @@
 /**
- * Dresses the page: the art the stylesheet asks for, then the mine gallery
- * around the game — a beam overhead, lanterns either side of the plaque, ore in
- * the walls, a railed floor with a rat running across it.
+ * Dresses the page: the art the stylesheet asks for, then the mine around the
+ * game — earth all round, and in the middle the dark mouth of a gallery, its
+ * timber set framing the boards, lamps hung from the timbers, ore in the rock,
+ * tools and dynamite on a railed floor with a rat running across it.
  *
- * The art comes first and on its own. Every track piece, switch and icon goes
- * onto the root element as a `--rr-art-*` custom property holding a data URL,
- * which the stylesheet reads with a fallback; once it is there, `data-art` on
- * the root tells the stylesheet to hide the plain characters the board shows
- * without it.
+ * The art comes first and on its own. Every track piece, exit mark, badge
+ * glyph and icon goes onto the root element as a `--rr-art-*` custom property
+ * holding a data URL, which the stylesheet reads with a fallback; once it is
+ * there, `data-art` on the root tells the stylesheet to hide the plain
+ * characters the board shows without it.
  *
  * Everything after that is scenery. It is all `aria-hidden`, none of it takes
  * a click, and nothing in the page reads it back. And all of it may give up:
@@ -16,7 +17,7 @@
  * and whole — `mountApp` finished the game before this started.
  */
 
-import { beamTile, chain, drawIcons, drawSprites, drawTrackArt, floorTile, stoneTile } from './art';
+import { beamTile, chain, drawIcons, drawSprites, drawTrackArt, earthTile, floorTile, postTile } from './art';
 import type { Sprite } from './art';
 import { FRAME_MS } from './style';
 
@@ -42,9 +43,10 @@ export function dressScene(root: HTMLElement): void {
     };
     for (const [name, sprite] of Object.entries(drawTrackArt())) art(name, sprite);
     for (const [name, icon] of Object.entries(drawIcons())) art(name, icon);
-    art('stone', stoneTile());
+    art('earth', earthTile());
     art('floor', floorTile());
     art('beam', beamTile());
+    art('post', postTile());
     doc.documentElement.setAttribute('data-art', '');
   } catch {
     // Art that could not be drawn is art left out: the board still shows a
@@ -109,14 +111,30 @@ function build(
     return span;
   };
 
-  // --- Overhead: the beam, the plaque's chains, two lanterns -------------------
+  // --- The gallery's mouth: a dark tunnel, timbered, behind the boards ---------
 
-  const beam = element('div', 'rr-beam');
-  beam.append(
-    sprite('bracket', 'rr-bracket', { scale: 3, style: { left: '16%' } }),
-    sprite('bracket', 'rr-bracket', { scale: 3, style: { right: '16%' } }),
+  const tunnel = element('div', 'rr-tunnel');
+  const postLamp = (side: 'l' | 'r', phase: number): HTMLElement => {
+    const wrap = element('div', `rr-post-lamp ${side}`);
+    wrap.append(
+      sprite(side === 'l' ? 'armL' : 'armR', 'rr-arm rr-soft-shadow', { scale: 3 }),
+      put([chain(2)], 'rr-chain rr-soft-shadow', { scale: 3 }),
+      sprite('lantern', 'rr-lamp rr-wall-shadow', { scale: 3, phase }),
+    );
+    return wrap;
+  };
+  tunnel.append(
+    element('i', 'rr-post l'),
+    element('i', 'rr-post r'),
+    sprite('braceL', 'rr-brace l rr-wall-shadow', { scale: 3 }),
+    sprite('braceR', 'rr-brace r rr-wall-shadow', { scale: 3 }),
+    postLamp('l', 1),
+    postLamp('r', 0),
   );
-  at.app.prepend(beam);
+  // The cap of the timber set, across the top.
+  at.app.prepend(tunnel, element('div', 'rr-beam'));
+
+  // --- Two lamps hung from the cap, either side of the plaque ------------------
 
   const lantern = (side: 'l' | 'r', phase: number): HTMLElement => {
     const wrap = element('div', `rr-lantern-wrap ${side}`);
@@ -132,16 +150,16 @@ function build(
     put([chain(3)], 'rr-chain rr-plaque-chain rr-soft-shadow', { scale: 3, style: { right: '28px' } }),
   );
 
+  // The rock of the tunnel's walls, around the plaque: a seam of each cargo.
   at.hall.prepend(
-    sprite('vein', 'rr-prop rr-vein', { style: { left: '4%', top: '24%' } }),
-    sprite('vein2', 'rr-prop rr-vein', { style: { right: '6%', top: '58%' } }),
-    sprite('crack', 'rr-prop rr-crack', { style: { left: '21%', top: '50%' } }),
-    sprite('crack2', 'rr-prop rr-crack', { style: { right: '22%', top: '16%' } }),
-    sprite('moss', 'rr-prop rr-moss', { style: { left: '1%', bottom: '6%' } }),
-    sprite('moss', 'rr-prop rr-moss', { style: { right: '12%', bottom: '10%' } }),
+    sprite('coal', 'rr-prop rr-vein', { style: { left: '3%', top: '22%' } }),
+    sprite('gold', 'rr-prop rr-vein', { style: { right: '5%', top: '56%' } }),
+    sprite('crystals', 'rr-prop rr-vein', { style: { left: '15%', top: '58%' } }),
+    sprite('crack', 'rr-prop rr-crack', { style: { left: '22%', top: '12%' } }),
+    sprite('crack2', 'rr-prop rr-crack', { style: { right: '21%', top: '18%' } }),
   );
 
-  // --- The walls to either side, on a wide enough screen ------------------------
+  // --- The earth to either side, on a wide enough screen ------------------------
 
   const floorRow = (...items: HTMLElement[]): HTMLElement => {
     const row = element('div', 'rr-floor-row');
@@ -151,22 +169,27 @@ function build(
   const left = element('aside', 'rr-side l');
   left.append(
     sprite('tools', 'rr-wall-shadow', { scale: 4 }),
-    sprite('vein', 'rr-soft-shadow', { scale: 3 }),
+    sprite('coal2', 'rr-soft-shadow', { scale: 3 }),
     element('i', 'rr-grow'),
-    floorRow(standing(sprite('crates', '', { scale: 2 })), standing(sprite('barrel', '', { scale: 3 }))),
+    floorRow(standing(sprite('dynamite', '', { scale: 2 })), standing(sprite('bucket', '', { scale: 2 }))),
   );
   const right = element('aside', 'rr-side r');
   right.append(
-    sprite('vein2', 'rr-soft-shadow', { scale: 3 }),
+    sprite('crystals', 'rr-soft-shadow', { scale: 3 }),
+    sprite('gold2', 'rr-soft-shadow', { scale: 3 }),
     element('i', 'rr-grow'),
-    floorRow(standing(sprite('cart', '', { scale: 5 })), standing(sprite('sack', '', { scale: 2 }))),
+    floorRow(
+      standing(sprite('floorLamp', 'rr-floor-lamp', { scale: 2, phase: 1 })),
+      standing(sprite('cart', '', { scale: 4 })),
+      standing(sprite('sack', 'rr-sack', { scale: 2 })),
+    ),
   );
   at.app.prepend(left, right);
 
-  // --- The boards: a rivet in each corner ---------------------------------------
+  // --- The boards: a bolt in each corner of their timber ------------------------
 
   for (const board of at.boards) {
-    for (const corner of ['tl', 'tr', 'bl', 'br']) board.append(element('i', `rr-rivet ${corner}`));
+    for (const corner of ['tl', 'tr', 'bl', 'br']) board.append(element('i', `rr-bolt ${corner}`));
   }
 
   // --- Underfoot ----------------------------------------------------------------

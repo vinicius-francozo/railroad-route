@@ -32,8 +32,9 @@ export const PAL: Readonly<Record<string, string>> = {
   m: '#2f5d33', M: '#4c8a43', c: '#e2dccb', C: '#a59f8e', p: '#e8d6a8', P: '#bfa877',
   i: '#50545c', I: '#8a909a',
   v: '#57496a', V: '#7d6c94', b: '#0e1a2e', B: '#1c2f4d', q: '#dfe8f2',
-  // This page's own: coal and crystal, the cargo the switches' marks show.
+  // This page's own: coal, crystal, and the earth the mine is cut into.
   a: '#55525e', A: '#a9a6b4', Q: '#36343c', j: '#3fb6d0', J: '#bff2fb', l: '#1f6f8f',
+  t: '#3b2a1c', T: '#54402d', u: '#21170e', z: '#4a3a2c', Z: '#66523f',
 };
 
 /** Mulberry32. Decoration only: nothing in the game reads it. */
@@ -159,6 +160,7 @@ const DIM: Finish = {
   bent: { light: '#3a2a1e', dark: '#2a1e15', half: 0.75 },
 };
 
+/** Paints `bands` in `tones`: their shadows first, then the bands over them. */
 function paintBands(P: Pen, bands: readonly Band[], tones: Tones): void {
   for (const pass of ['shadow', 'body'] as const) {
     for (let y = 0; y < 16; y++) {
@@ -572,78 +574,145 @@ function keyIcon(): Sprite {
   );
 }
 
-// --- The gallery around the board ---------------------------------------------
+// --- The mine around the board --------------------------------------------------
 //
-// Scenery only, none of it read back by the game. The stone, the beam, the
-// chain, the bracket, the lantern, the crack, the moss, the barrel, the crates,
-// the sack and the rat are Gridsmith's, unchanged; the floor gains a rail, and
-// the ore veins and the miner's tools are this page's own.
+// Scenery only, none of it read back by the game. The chain, the lantern, the
+// crack, the gold seam, the tools, the sack and the rat are Gridsmith's or this
+// page's from before; the earth, the timbering, the floor, the coal and the
+// crystal in the rock, the dynamite, the bucket and the standing lamp are the
+// mine's own.
 
-/** The wall: dark bricks in staggered rows, a little moss in the joints. */
-export function stoneTile(): Sprite {
-  const cv = canvas(64, 32);
-  const ctx = context(cv);
-  const r = rng(11);
-  ctx.fillStyle = '#101115';
-  ctx.fillRect(0, 0, 64, 32);
-  const shades = ['#26292f', '#2b2e35', '#23252b', '#2f333a', '#272a30'];
-  for (let row = 0; row < 4; row++) {
-    const off = row % 2 ? 8 : 0;
-    for (let bx = -off; bx < 64; bx += 16) {
-      const x = bx + 1;
-      const y = row * 8 + 1;
-      ctx.fillStyle = shades[(r() * shades.length) | 0] ?? shades[0];
-      ctx.fillRect(x, y, 15, 7);
-      ctx.fillStyle = '#ffffff10';
-      ctx.fillRect(x, y, 15, 1);
-      ctx.fillStyle = '#00000040';
-      ctx.fillRect(x, y + 6, 15, 1);
-      if (r() < 0.18) {
-        ctx.fillStyle = '#2d4528';
-        ctx.fillRect(x + ((r() * 12) | 0), y + 6, 3, 1);
+/**
+ * The earth the mine is cut into: strata of clay, ochre and gravel with wavy
+ * seams, rounded pebbles lit from the top left, and one fleck of each cargo —
+ * gold, coal, crystal. Tiles both ways: the waves repeat across its width, and
+ * its first and last strata are one colour, so the seam between two tiles is
+ * not seen.
+ */
+export function earthTile(): Sprite {
+  const W = 96;
+  const H = 64;
+  const cv = canvas(W, H);
+  const P = pen(context(cv));
+  const r = rng(13);
+  const strata: readonly (readonly [number, string])[] = [
+    [0, '#2a1c12'], [9, '#3a2817'], [14, '#22170f'], [25, '#2d2016'], [35, '#33241a'], [45, '#1f150e'], [54, '#2a1c12'],
+  ];
+  const waves = strata.map(() => ({ phase: r() * Math.PI * 2, bends: 1 + ((r() * 2) | 0) }));
+  const seamAt = (index: number, x: number): number => {
+    const [top] = strata[index] ?? [0];
+    const wave = waves[index] ?? { phase: 0, bends: 1 };
+    return index === 0 ? 0 : top + Math.round(1.8 * Math.sin((x / W) * Math.PI * 2 * wave.bends + wave.phase));
+  };
+  for (let x = 0; x < W; x++) {
+    for (let index = 0; index < strata.length; index++) {
+      const from = seamAt(index, x);
+      const to = index + 1 < strata.length ? seamAt(index + 1, x) : H;
+      P(x, from, 1, to - from, strata[index]?.[1] ?? '#2a1c12');
+      // The seam itself: a dark line under a lighter one, broken in places.
+      if (index > 0 && index < strata.length - 1 && r() < 0.75) {
+        P(x, from, 1, 1, '#150e08');
+        if (r() < 0.5) P(x, from + 1, 1, 1, '#3d2b1d');
       }
     }
+  }
+  for (let i = 0; i < 160; i++) P((r() * W) | 0, (r() * H) | 0, 1, 1, r() < 0.5 ? '#37281c' : '#1a110a');
+  // The gravel stratum: small stones packed in it.
+  for (let i = 0; i < 26; i++) {
+    const x = (r() * (W - 2)) | 0;
+    const y = seamAt(3, x) + 2 + ((r() * 6) | 0);
+    P(x, y, 2, 1, '#4d3c2d'); P(x, y + 1, 2, 1, '#1a110a');
+  }
+  // Pebbles: rounded, outlined, three tones.
+  const pebble = (cx: number, cy: number, rx: number, ry: number): void => {
+    const inside = (x: number, y: number): boolean => ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1;
+    for (let y = Math.floor(cy - ry) - 1; y <= cy + ry + 1; y++) {
+      for (let x = Math.floor(cx - rx) - 1; x <= cx + rx + 1; x++) {
+        if (!inside(x, y)) continue;
+        const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+        const t = (x + 0.5 - cx) / rx + (y + 0.5 - cy) / ry;
+        P(x, y, 1, 1, edge ? '#140d08' : t < -0.5 ? 'Z' : t > 0.5 ? '#3a2d22' : 'z');
+      }
+    }
+  };
+  for (let i = 0; i < 9; i++) {
+    const rx = 1.6 + r() * 2.4;
+    const ry = 1.4 + r() * 1.4;
+    pebble(5 + r() * (W - 10), 4 + r() * (H - 8), rx, ry);
+  }
+  // One fleck of each cargo, small, in the rock.
+  for (const [light, dark] of [['G', 'o'], ['A', 'a'], ['J', 'l']] as const) {
+    const x = 4 + ((r() * (W - 8)) | 0);
+    const y = 4 + ((r() * (H - 8)) | 0);
+    P(x, y, 2, 2, '#120b06'); P(x, y, 1, 1, light); P(x + 1, y, 1, 1, dark);
   }
   return cv;
 }
 
-/** The ceiling beam, repeated across the top of the page. */
+/** The cap of the timber set over the tunnel's mouth, repeated across the top of the page. */
 export function beamTile(): Sprite {
   const cv = canvas(32, 12);
   const P = pen(context(cv));
   const r = rng(41);
   P(0, 0, 32, 12, 'W'); P(0, 0, 32, 1, 'h'); P(0, 10, 32, 1, 'w'); P(0, 11, 32, 1, 'k');
   for (let i = 0; i < 6; i++) P((r() * 26) | 0, 2 + ((r() * 7) | 0), 3 + ((r() * 7) | 0), 1, 'w');
+  // Bark left on the rough-hewn edge, and an adze mark.
+  for (let x = 0; x < 32; x += 1) if (r() < 0.35) P(x, 1, 1, 1, 'n');
   P(20, 5, 2, 2, 'n'); P(21, 5, 1, 1, 'w');
   return cv;
 }
 
+/** A post of the timber set, repeated down each side of the tunnel. */
+export function postTile(): Sprite {
+  const cv = canvas(8, 32);
+  const P = pen(context(cv));
+  const r = rng(53);
+  P(0, 0, 8, 32, 'k'); P(1, 0, 6, 32, 'W'); P(1, 0, 1, 32, 'h'); P(6, 0, 1, 32, 'w');
+  for (let i = 0; i < 5; i++) P(2 + ((r() * 4) | 0), (r() * 26) | 0, 1, 3 + ((r() * 6) | 0), 'w');
+  P(3, 18, 2, 2, 'n'); P(3, 18, 1, 1, 'w');
+  return cv;
+}
+
 /**
- * The floor: Gridsmith's stone skirting and three rows of flags that get
- * taller and lighter toward the viewer, with a mine rail laid along the
- * nearest row, so the gallery's floor is the track's floor.
+ * The knee brace between a post and the cap, on the left of the tunnel
+ * (`/`) or on the right (`\`), each lit from the top left as it stands.
+ */
+function brace(side: 'l' | 'r'): Sprite {
+  return maskIcon(
+    12,
+    12,
+    (x, y) => Math.abs(side === 'l' ? x + y - 11 : x - y) <= 2,
+    (x, y) => {
+      const d = side === 'l' ? x + y - 11 : y - x;
+      return d < -0.5 ? 'h' : d > 0.5 ? 'w' : 'W';
+    },
+  );
+}
+
+/**
+ * The floor of the gallery: a foot of rubble against the wall, then packed
+ * earth that gets lighter toward the viewer, with a mine rail laid along it.
  */
 export function floorTile(): Sprite {
   const cv = canvas(48, 26);
   const P = pen(context(cv));
   const r = rng(91);
-  P(0, 0, 48, 26, '#101114');
-  for (let x = 0; x < 48; x += 12) {
-    P(x, 0, 11, 4, '#4a4e56'); P(x, 0, 11, 1, '#6b7079'); P(x, 3, 11, 1, '#33363c');
+  P(0, 0, 48, 26, '#120c07');
+  for (let x = 0; x < 48; x += 3 + ((r() * 3) | 0)) {
+    const w = 2 + ((r() * 3) | 0);
+    const h = 2 + ((r() * 2) | 0);
+    P(x, 4 - h, w, h, '#3a2c20'); P(x, 4 - h, w, 1, '#4a3a2c');
   }
-  P(0, 4, 48, 2, '#08090a');
-  const rows: readonly (readonly [number, number, number, readonly string[]])[] = [
-    [6, 5, 8, ['#2a2c31', '#26282d', '#2d2f35']],
-    [12, 6, 12, ['#33363c', '#2f3237', '#373a40']],
-    [19, 7, 16, ['#3c3f46', '#383b41', '#41444b']],
+  P(0, 4, 48, 2, '#080503');
+  const rows: readonly (readonly [number, number, readonly string[]])[] = [
+    [6, 5, ['#251a11', '#22170f', '#281c12']],
+    [11, 7, ['#2e2016', '#2b1e14', '#312318']],
+    [18, 8, ['#36271b', '#33251a', '#3a2a1d']],
   ];
-  for (const [y, h, w, tones] of rows) {
-    const off = (y % 2) * (w / 2);
-    for (let x = -off; x < 48; x += w) {
-      P(x + 1, y, w - 1, h - 1, tones[(r() * tones.length) | 0] ?? tones[0] ?? '#333');
-      P(x + 1, y, w - 1, 1, 'rgba(255,255,255,.07)');
-      if (r() < 0.35) P(x + 2 + ((r() * (w - 5)) | 0), y + 2, 2, 1, 'rgba(0,0,0,.25)');
-    }
+  for (const [y, h, tones] of rows) {
+    P(0, y, 48, h, tones[0] ?? '#2e2016');
+    for (let i = 0; i < 40; i++) P((r() * 48) | 0, y + ((r() * h) | 0), 1, 1, tones[1 + ((r() * 2) | 0)] ?? '#333');
+    P(0, y, 48, 1, 'rgba(255,255,255,.04)');
   }
   for (let x = 2; x < 48; x += 6) { P(x, 13, 3, 9, 'w'); P(x, 13, 3, 1, 'h'); P(x + 3, 14, 1, 8, 'k'); }
   for (const y of [14, 20]) { P(0, y, 48, 1, 'S'); P(0, y + 1, 48, 1, 'i'); P(0, y + 2, 48, 1, 'k'); }
@@ -665,11 +734,16 @@ export function chain(links: number): Sprite {
   return cv;
 }
 
-function bracket(): Sprite {
-  const cv = canvas(8, 14);
+/** An iron arm nailed to a post, a hook at its end for a lamp. Points away from the post. */
+function lampArm(side: 'l' | 'r'): Sprite {
+  const cv = canvas(14, 7);
   const P = pen(context(cv));
-  P(0, 0, 8, 14, 'k'); P(1, 0, 6, 13, 'i'); P(1, 0, 6, 1, 'I'); P(1, 0, 1, 13, 'I');
-  P(3, 3, 2, 2, 'I'); P(3, 9, 2, 2, 'I'); P(4, 4, 1, 1, 'k'); P(4, 10, 1, 1, 'k');
+  const x0 = side === 'l' ? 0 : 1;
+  P(x0, 0, 13, 3, 'k'); P(x0 + 1, 1, 11, 1, 'I');
+  const hook = side === 'l' ? 1 : 10;
+  P(hook, 2, 3, 5, 'k'); P(hook + 1, 3, 1, 3, 'i');
+  const plate = side === 'l' ? 10 : 0;
+  P(plate, 0, 4, 5, 'k'); P(plate + 1, 1, 2, 3, 'i'); P(plate + 1, 1, 1, 1, 'I');
   return cv;
 }
 
@@ -686,6 +760,20 @@ function lantern(frame: number): Sprite {
   return cv;
 }
 
+/** The same lamp, set down on the floor: a carrying hoop on top and a wide foot. */
+function floorLamp(frame: number): Sprite {
+  const cv = canvas(14, 24);
+  const P = pen(context(cv));
+  const f = frame % 2;
+  P(4, 0, 6, 1, 'k'); P(3, 1, 1, 3, 'k'); P(10, 1, 1, 3, 'k'); P(4, 1, 6, 1, 'i');
+  P(3, 3, 8, 3, 'k'); P(4, 4, 6, 1, 'i');
+  P(2, 6, 10, 12, 'k'); P(3, 7, 8, 10, '#e9a640'); P(4, 8, 6, 8, 'F');
+  P(6, 11 - f, 2, 5 + f, 'y'); P(5 + f, 13, 1, 3, 'f');
+  P(2, 6, 1, 12, 'i'); P(11, 6, 1, 12, 'i');
+  P(1, 18, 12, 4, 'k'); P(2, 19, 10, 1, 'I'); P(2, 20, 10, 1, 'i');
+  return cv;
+}
+
 function crack(seed: number): Sprite {
   const cv = canvas(12, 16);
   const P = pen(context(cv));
@@ -694,38 +782,42 @@ function crack(seed: number): Sprite {
   for (let y = 0; y < 16; y++) {
     x += r() < 0.45 ? (r() < 0.5 ? -1 : 1) : 0;
     x = Math.max(1, Math.min(10, x));
-    P(x, y, 1, 1, '#08080a');
+    P(x, y, 1, 1, '#0a0604');
     if (r() < 0.3) P(x + 1, y, 1, 1, '#ffffff12');
-    if (y === 7) for (let k = 1; k < 5; k++) P(x + k, y + k, 1, 1, '#08080a');
+    if (y === 7) for (let k = 1; k < 5; k++) P(x + k, y + k, 1, 1, '#0a0604');
   }
   return cv;
 }
 
-function moss(): Sprite {
-  const cv = canvas(12, 6);
-  const P = pen(context(cv));
-  const r = rng(5);
-  const greens = ['M', 'm', '#24451f'];
-  for (let i = 0; i < 30; i++) {
-    const x = (r() * 12) | 0;
-    const y = (r() * 6) | 0;
-    if (Math.abs(x - 6) / 6 + y / 6 < 1.1) P(x, y, 1, 1, greens[(r() * 3) | 0] ?? 'M');
-  }
-  return cv;
-}
-
-/** A seam of gold in the rock: a dark fissure with nuggets caught in it. */
-function oreVein(seed: number): Sprite {
+/** A seam in the rock: a dark fissure with lumps of `ore` caught in it. */
+function seam(seed: number, ore: 'gold' | 'coal'): Sprite {
   const cv = canvas(20, 12);
   const P = pen(context(cv));
   const r = rng(seed);
+  const [light, dark] = ore === 'gold' ? ['G', 'o'] : ['A', 'a'];
   let y = 6;
   for (let x = 0; x < 20; x++) {
     y = Math.max(2, Math.min(9, y + (r() < 0.4 ? (r() < 0.5 ? -1 : 1) : 0)));
-    P(x, y, 1, 2, '#0c0b0c');
-    if (r() < 0.32) { P(x, y - 1, 2, 2, 'k'); P(x, y - 1, 1, 1, 'G'); P(x + 1, y, 1, 1, 'o'); }
+    P(x, y, 1, 2, '#0a0604');
+    if (r() < (ore === 'coal' ? 0.5 : 0.32)) { P(x, y - 1, 2, 2, 'k'); P(x, y - 1, 1, 1, light); P(x + 1, y, 1, 1, dark); }
   }
   return cv;
+}
+
+/** Crystals growing out of a crack: three prisms, pointed, lit from the left. */
+function crystals(): Sprite {
+  return fromRows([
+    '.....kk.........',
+    '....kJjk........',
+    '....kJjk....k...',
+    '.k..kJjlk..kJk..',
+    'kJk.kJjlk..kJlk.',
+    'kJjkkJjlk.kJjlk.',
+    'kJjlkJjlkkkJjlk.',
+    'kJjlkJjlkkJjjlk.',
+    'kJjlkJjlkkJjjlk.',
+    'kkkkkkkkkkkkkkk.',
+  ]);
 }
 
 /** A pick and a shovel crossed on a peg, as a miner leaves them on the wall. */
@@ -739,28 +831,42 @@ function minerTools(): Sprite {
   // The shovel's blade, bottom left; the pick's head, top left.
   P(0, 17, 7, 7, 'k'); P(1, 18, 5, 5, 'I'); P(1, 18, 5, 1, 'S'); P(5, 19, 1, 4, 'i');
   P(0, 2, 10, 3, 'k'); P(1, 3, 8, 1, 'S'); P(0, 5, 2, 3, 'k'); P(8, 0, 3, 3, 'k'); P(9, 1, 1, 1, 'I');
-  P(10, 9, 4, 4, 'k'); P(11, 10, 2, 2, 'g');
+  P(10, 9, 4, 4, 'k'); P(11, 10, 2, 2, 'i');
   return cv;
 }
 
-function barrel(): Sprite {
-  const cv = canvas(18, 22);
-  const P = pen(context(cv));
-  P(2, 0, 14, 22, 'k'); P(1, 3, 16, 16, 'k'); P(3, 1, 12, 20, 'W'); P(2, 4, 14, 14, 'W');
-  P(6, 1, 1, 20, 'w'); P(11, 1, 1, 20, 'w'); P(4, 2, 1, 18, 'h');
-  P(1, 5, 16, 2, 'i'); P(1, 15, 16, 2, 'i'); P(1, 5, 16, 1, 'I'); P(1, 15, 16, 1, 'I');
-  return cv;
-}
-
-function crates(): Sprite {
+/**
+ * Crates of dynamite, nailed shut: a big one and a small one on top, each with
+ * a red band and a painted stick on it.
+ */
+function dynamite(): Sprite {
   const cv = canvas(26, 24);
   const P = pen(context(cv));
   const crate = (x: number, y: number, w: number, h: number): void => {
     P(x, y, w, h, 'k'); P(x + 1, y + 1, w - 2, h - 2, 'W'); P(x + 1, y + 1, w - 2, 1, 'h');
-    for (let i = 0; i < w - 4; i++) P(x + 2 + i, y + 2 + Math.round((i * (h - 5)) / (w - 5)), 1, 1, 'w');
-    P(x + 1, y + (h >> 1), w - 2, 1, 'w');
+    P(x + 1, y + h - 2, w - 2, 1, 'w');
+    for (let i = x + 4; i < x + w - 2; i += 4) P(i, y + 2, 1, h - 4, 'w');
+    const band = y + (h >> 1) - 2;
+    P(x + 1, band, w - 2, 4, 'r'); P(x + 1, band, w - 2, 1, 'R');
+    const mid = x + (w >> 1);
+    P(mid - 3, band + 1, 6, 2, 'p'); P(mid - 2, band + 1, 3, 2, 'R'); P(mid + 1, band + 1, 1, 1, 'k');
+    for (const cx of [x + 1, x + w - 2]) { P(cx, y + 1, 1, 1, 'I'); P(cx, y + h - 2, 1, 1, 'I'); }
   };
-  crate(0, 11, 16, 13); crate(15, 14, 11, 10); crate(3, 0, 12, 11);
+  crate(0, 10, 18, 14); crate(4, 0, 13, 11); crate(17, 13, 9, 11);
+  return cv;
+}
+
+/** An iron bucket with its bail up. */
+function bucket(): Sprite {
+  const cv = canvas(14, 15);
+  const P = pen(context(cv));
+  P(3, 0, 8, 1, 'k'); P(2, 1, 1, 4, 'k'); P(11, 1, 1, 4, 'k');
+  P(0, 4, 14, 3, 'k'); P(1, 5, 12, 1, 'I');
+  [12, 12, 11, 11, 10, 10, 10, 9].forEach((w, i) => {
+    const x = 7 - (w >> 1);
+    P(x - 1, 7 + i, w + 2, 1, 'k'); P(x, 7 + i, w, 1, 'i'); P(x, 7 + i, 2, 1, 'I');
+  });
+  P(2, 14, 10, 1, 'k'); P(3, 9, 8, 1, 'd');
   return cv;
 }
 
@@ -820,16 +926,22 @@ function parkedCart(): Sprite {
  */
 export function drawSprites(): Readonly<Record<string, readonly Sprite[]>> {
   return {
-    bracket: [bracket()],
     lantern: [lantern(0), lantern(1)],
+    floorLamp: [floorLamp(0), floorLamp(1)],
+    armL: [lampArm('l')],
+    armR: [lampArm('r')],
+    braceL: [brace('l')],
+    braceR: [brace('r')],
     crack: [crack(3)],
     crack2: [crack(19)],
-    moss: [moss()],
-    vein: [oreVein(7)],
-    vein2: [oreVein(23)],
+    gold: [seam(7, 'gold')],
+    gold2: [seam(23, 'gold')],
+    coal: [seam(31, 'coal')],
+    coal2: [seam(47, 'coal')],
+    crystals: [crystals()],
     tools: [minerTools()],
-    barrel: [barrel()],
-    crates: [crates()],
+    dynamite: [dynamite()],
+    bucket: [bucket()],
     sack: [sack()],
     rat: [rat(0), rat(1)],
     cart: [parkedCart()],
