@@ -1,0 +1,57 @@
+{
+  "id": "first-switch",
+  "name": "First Switch",
+  "order": 1,
+  "width": 7,
+  "height": 3,
+  "cells": [
+    {"x": 0, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 2, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 3, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 4, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 5, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 6, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 0, "y": 1, "kind": "start", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 2, "y": 1, "kind": "straight", "rotation": 0, "mode": "rotatable"},
+    {"x": 4, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 5, "y": 1, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 3, "y": 2, "kind": "tunnel", "rotation": 1, "mode": "fixed"},
+    {"x": 5, "y": 2, "kind": "curve", "rotation": 2, "mode": "rotatable"},
+    {"x": 6, "y": 2, "kind": "mine", "rotation": 0, "mode": "fixed"}
+  ],
+  "switches": [
+    {
+      "id": "cargo",
+      "x": 3,
+      "y": 1,
+      "entry": "W",
+      "question": {
+        "type": "choice",
+        "instructions": "What does the cart carry?",
+        "criteria": {
+          "coal": "Coal",
+          "gold": "Gold"
+        }
+      },
+      "exits": {
+        "coal": "S",
+        "gold": "E"
+      }
+    }
+  ],
+  "inventory": {"straight": 0, "curve": 0, "cross": 0},
+  "taboo": ["option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "top", "bottom", "left", "right", "yes", "ignor", "criteri", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "max_words": 12,
+  "par_pieces": 0,
+  "reference_solution": {
+    "sentence": "Precious metal that kings stamp onto coins",
+    "rotations": [
+      {"x": 2, "y": 1, "rotation": 1},
+      {"x": 5, "y": 1, "rotation": 2},
+      {"x": 5, "y": 2, "rotation": 0}
+    ],
+    "placements": []
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "cargo": {
+    "type": "choice",
+    "choice": "gold",
+    "confidence": 0.95
+  }
+}
