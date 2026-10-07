@@ -831,7 +831,7 @@ describe('the note', () => {
     await settle();
     const counter = byId(app.root, 'rr-sentence-count');
     expect(counter.textContent).toBe('0 / 5 words');
-    app.type("don't, well-known cart");
+    app.type("don't, well-known mine cart");
     expect(counter.textContent).toBe('5 / 5 words');
     expect(counter.attributes.get('data-over')).toBe('false');
     app.type('one two three four five six');
