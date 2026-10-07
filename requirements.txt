@@ -1,3 +1,5 @@
+# Runtime dependencies. Keep in step with [project].dependencies in pyproject.toml,
+# which is what Vercel installs.
 fastapi>=0.115,<1
 httpx>=0.28,<1
 pydantic>=2.9,<3

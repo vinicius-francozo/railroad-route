@@ -1,5 +1,18 @@
-# Tool configuration only. The project is installed with `pip install -r requirements-dev.txt`,
-# not packaged.
+# Locally the project is installed with `pip install -r requirements-dev.txt`, not packaged.
+#
+# `[project]` is here for Vercel: its Python runtime installs the function's dependencies from
+# this file and ignores requirements.txt when a pyproject.toml exists. Keep the list below the
+# same as requirements.txt.
+
+[project]
+name = "railroad-route"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "httpx>=0.28,<1",
+    "pydantic>=2.9,<3",
+]
 
 [tool.ruff]
 line-length = 100
