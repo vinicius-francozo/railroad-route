@@ -140,6 +140,7 @@ The project is set up for Vercel (`vercel.json`): the page is the static `dist/`
   - A run on your own key spends no quota.
 - **Nothing is logged.** The backend writes no request data to a log, and no error message repeats a sentence or a key.
 - **What the cache keeps.** Upstash holds Jev's answers keyed by level and sentence, plus daily counters. The sentence and the IP are stored only as hashes in key names.
+- **The deployed site counts page views** with [Vercel Web Analytics](https://vercel.com/docs/analytics/privacy-policy) (`src/main.ts`). Each view records the URL, the referrer, an approximate location, the browser and the device. It uses no third-party cookies, and a visitor is identified only by a hash of the request that is discarded after 24 hours. The note and the key are never in the URL, so neither reaches it. Running locally reports nothing: in development the package only logs to the console.
 
 ## Known limits
 
