@@ -106,3 +106,404 @@ export function maskIcon(
   }
   return cv;
 }
+
+// --- The track ----------------------------------------------------------------
+//
+// Every piece of track is 16 × 16 and drawn per pixel from its geometry, the
+// way `maskIcon` draws a shape: each rail and each sleeper is a band around a
+// centre line, and a pixel inside a band takes the light tone on the side that
+// faces the top-left and the dark tone on the other, with a hard shadow one
+// pixel further out on the dark side. The light is worked out on the screen,
+// after the piece is turned, so a turned piece is still lit from the top left —
+// turning a finished sprite with CSS would put the shadow on the wrong side
+// three times out of four.
+
+/** A side of a cell, as the contract names them: north is up. */
+export type Side = 'N' | 'E' | 'S' | 'W';
+
+const SIDES: readonly Side[] = ['N', 'E', 'S', 'W'];
+const STEP: Readonly<Record<Side, readonly [number, number]>> = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] };
+
+/** `side` turned clockwise by `quarters` quarter turns. */
+export function turnSide(side: Side, quarters: number): Side {
+  return SIDES[(SIDES.indexOf(side) + quarters) % 4] ?? side;
+}
+
+/** Where a pixel sits against a band: how far from its centre line, and which way is "further". */
+type Reading = { d: number; nx: number; ny: number };
+type Band = (x: number, y: number) => Reading | undefined;
+type Tones = { light: string; dark: string; half: number };
+
+const RAIL: Tones = { light: 'S', dark: 'i', half: 1 };
+const SLEEPER: Tones = { light: 'h', dark: 'w', half: 1 };
+/** A sleeper across a bend is thinner: on the diagonal a band of 1 is three pixels thick. */
+const BENT_SLEEPER: Tones = { light: 'h', dark: 'w', half: 0.75 };
+const BUFFER: Tones = { light: 'R', dark: 'r', half: 1.5 };
+
+/** Paints `bands` in `tones`: their shadows first, then the bands over them. */
+function paintBands(P: Pen, bands: readonly Band[], tones: Tones): void {
+  for (const pass of ['shadow', 'body'] as const) {
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        for (const band of bands) {
+          const at = band(x + 0.5, y + 0.5);
+          if (at === undefined) continue;
+          const sign = at.d < 0 ? -1 : 1;
+          // Facing the light is facing up and to the left: (-1, -1).
+          const lit = -(sign * at.nx + sign * at.ny) >= 0;
+          const off = Math.abs(at.d);
+          if (pass === 'body' && off < tones.half) {
+            P(x, y, 1, 1, lit ? tones.light : tones.dark);
+          } else if (pass === 'shadow' && !lit && off >= tones.half && off < tones.half + 1) {
+            P(x, y, 1, 1, 'k');
+          }
+        }
+      }
+    }
+  }
+}
+
+/** A straight run between two opposite sides, or from one side part of the way in. */
+type Run = { axis: 'NS' | 'EW'; from: number; to: number };
+/** A quarter circle between two neighbouring sides, around the corner they share. */
+type Arc = { cx: number; cy: number };
+
+/** The run from `side` toward the middle, `reach` pixels long. */
+function stub(side: Side, reach: number): Run {
+  const axis = side === 'N' || side === 'S' ? 'NS' : 'EW';
+  return side === 'N' || side === 'W' ? { axis, from: 0, to: reach } : { axis, from: 16 - reach, to: 16 };
+}
+
+function arcBetween(a: Side, b: Side): Arc {
+  const [ax, ay] = STEP[a];
+  const [bx, by] = STEP[b];
+  return { cx: 8 + 8 * (ax + bx), cy: 8 + 8 * (ay + by) };
+}
+
+/** Rails sit five pixels in from each edge, so every piece meets its neighbour. */
+const GAUGE = [5, 11] as const;
+
+function runRails(run: Run): Band[] {
+  return GAUGE.map((centre): Band => (x, y) => {
+    const along = run.axis === 'NS' ? y : x;
+    if (along < run.from || along >= run.to) return undefined;
+    return run.axis === 'NS' ? { d: x - centre, nx: 1, ny: 0 } : { d: y - centre, nx: 0, ny: 1 };
+  });
+}
+
+function runSleepers(run: Run): Band[] {
+  return [2, 6, 10, 14]
+    .filter((centre) => centre > run.from && centre < run.to)
+    .map((centre): Band => (x, y) => {
+      const across = run.axis === 'NS' ? x : y;
+      if (Math.abs(across - 8) >= 6) return undefined;
+      return run.axis === 'NS' ? { d: y - centre, nx: 0, ny: 1 } : { d: x - centre, nx: 1, ny: 0 };
+    });
+}
+
+function arcRails(arc: Arc): Band[] {
+  // The inner rail is 5 from the corner and the outer 11, which lands both on
+  // the gauge where they cross the edge.
+  return [5, 11].map((radius): Band => (x, y) => {
+    const r = Math.hypot(x - arc.cx, y - arc.cy);
+    return r === 0 ? undefined : { d: r - radius, nx: (x - arc.cx) / r, ny: (y - arc.cy) / r };
+  });
+}
+
+function arcSleepers(arc: Arc): Band[] {
+  const middle = Math.atan2(8 - arc.cy, 8 - arc.cx);
+  // Three sleepers, a third of the quarter apart: four, at sixteen pixels,
+  // ran into each other on the inside of the bend.
+  return [-0.52, 0, 0.52].map((offset): Band => {
+    const angle = middle + offset;
+    const ux = Math.cos(angle);
+    const uy = Math.sin(angle);
+    return (x, y) => {
+      const dx = x - arc.cx;
+      const dy = y - arc.cy;
+      const r = Math.hypot(dx, dy);
+      if (r < 3 || r > 13 || dx * ux + dy * uy <= 0) return undefined;
+      return { d: dx * -uy + dy * ux, nx: -uy, ny: ux };
+    };
+  });
+}
+
+/** Draws runs and arcs as one piece of track: every sleeper first, then every rail. */
+function track(P: Pen, runs: readonly Run[], arcs: readonly Arc[]): void {
+  paintBands(P, runs.flatMap(runSleepers), SLEEPER);
+  paintBands(P, arcs.flatMap(arcSleepers), BENT_SLEEPER);
+  paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], RAIL);
+}
+
+function tile(draw: (P: Pen) => void): Sprite {
+  const cv = canvas(16, 16);
+  draw(pen(context(cv)));
+  return cv;
+}
+
+/** The track a piece lays from `entry` to each of `exits`: straight across, or curving. */
+function laid(entry: Side, exits: readonly Side[]): { runs: Run[]; arcs: Arc[] } {
+  const runs: Run[] = [];
+  const arcs: Arc[] = [];
+  for (const exit of exits) {
+    if (turnSide(entry, 2) === exit) {
+      runs.push({ axis: entry === 'N' || entry === 'S' ? 'NS' : 'EW', from: 0, to: 16 });
+    } else {
+      arcs.push(arcBetween(entry, exit));
+    }
+  }
+  return { runs, arcs };
+}
+
+function straightTile(rotation: number): Sprite {
+  return tile((P) => {
+    const { runs } = laid(turnSide('N', rotation), [turnSide('S', rotation)]);
+    track(P, runs, []);
+  });
+}
+
+function curveTile(rotation: number): Sprite {
+  return tile((P) => {
+    track(P, [], [arcBetween(turnSide('N', rotation), turnSide('E', rotation))]);
+  });
+}
+
+function crossTile(rotation: number): Sprite {
+  // Turned, a cross is the same two runs; the one laid second is on top, so a
+  // turn swaps which line looks like it passes over.
+  const order: Run[] = [
+    { axis: 'NS', from: 0, to: 16 },
+    { axis: 'EW', from: 0, to: 16 },
+  ];
+  if (rotation % 2 === 1) order.reverse();
+  return tile((P) => {
+    paintBands(P, order.flatMap(runSleepers), SLEEPER);
+    for (const run of order) paintBands(P, runRails(run), RAIL);
+  });
+}
+
+/** Where the cart starts: a buffer stop at the closed end, and a green lamp beside it. */
+function startTile(rotation: number): Sprite {
+  const open = turnSide('E', rotation);
+  return tile((P) => {
+    const run = stub(open, 13);
+    track(P, [run], []);
+    const centre = open === 'N' || open === 'W' ? 12 : 4;
+    paintBands(P, [
+      (x, y) => {
+        const across = run.axis === 'NS' ? x : y;
+        if (Math.abs(across - 8) >= 6.5) return undefined;
+        return run.axis === 'NS' ? { d: y - centre, nx: 0, ny: 1 } : { d: x - centre, nx: 1, ny: 0 };
+      },
+    ], BUFFER);
+    // The lamp stands in the corner the track leaves free.
+    const [ox, oy] = STEP[open];
+    const lx = ox === 0 ? 1 : ox > 0 ? 1 : 12;
+    const ly = oy === 0 ? 1 : oy > 0 ? 1 : 12;
+    P(lx, ly, 3, 3, 'k'); P(lx + 1, ly + 1, 1, 1, '#9be08d'); P(lx + 1, ly + 2, 1, 1, 'M');
+  });
+}
+
+/** The mine: a timbered mouth with gold in the dark, the track running into it. */
+function mineTile(rotation: number): Sprite {
+  const open = turnSide('W', rotation);
+  return tile((P) => {
+    track(P, [stub(open, 9)], []);
+    P(2, 3, 12, 11, 'k');
+    P(5, 5, 6, 8, 'x'); P(5, 10, 6, 3, '#0a0808');
+    P(3, 4, 2, 9, 'W'); P(3, 4, 1, 9, 'h'); P(11, 4, 2, 9, 'W'); P(11, 4, 1, 9, 'h');
+    P(2, 3, 12, 2, 'W'); P(2, 3, 12, 1, 'h'); P(2, 5, 3, 1, 'w'); P(11, 5, 3, 1, 'w');
+    P(6, 11, 1, 1, 'g'); P(8, 9, 1, 1, 'G'); P(9, 12, 1, 1, 'o'); P(7, 7, 1, 1, 'o');
+    // A lamp hung from the lintel.
+    P(7, 0, 2, 3, 'k'); P(7, 1, 2, 1, 'F'); P(7, 2, 2, 1, 'f');
+    P(3, 13, 3, 1, 'w'); P(10, 13, 3, 1, 'w');
+  });
+}
+
+/** A wrong tunnel: a bare stone arch, a rust-red warning band, nothing inside. */
+function tunnelTile(rotation: number): Sprite {
+  const open = turnSide('W', rotation);
+  return tile((P) => {
+    track(P, [stub(open, 9)], []);
+    for (let y = 2; y < 14; y++) {
+      for (let x = 1; x < 15; x++) {
+        const dx = x + 0.5 - 8;
+        const dy = y + 0.5 - 8;
+        const outer = dy < 0 ? Math.hypot(dx, dy) <= 6.6 : Math.abs(dx) <= 6.6 && y <= 13;
+        const inner = dy < 0 ? Math.hypot(dx, dy) <= 3.6 : Math.abs(dx) <= 3.6;
+        if (!outer) continue;
+        const rim = dy < 0 ? Math.hypot(dx, dy) > 5.7 : Math.abs(dx) > 5.7;
+        P(x, y, 1, 1, inner ? (y > 10 ? '#0a0808' : 'x') : rim ? 'k' : dx + dy < -3 ? 'S' : dx + dy > 3 ? 'd' : 's');
+      }
+    }
+    P(3, 4, 10, 2, 'k'); P(4, 4, 2, 1, 'R'); P(8, 4, 2, 1, 'R'); P(6, 4, 2, 1, 'c'); P(10, 4, 2, 1, 'c');
+    P(4, 5, 8, 1, 'r');
+  });
+}
+
+/** A boulder: no track goes through it and nothing can be laid on it. */
+function rockTile(): Sprite {
+  const solid = (x: number, y: number): boolean => ((x + 0.5 - 8) / 6.6) ** 2 + ((y + 0.5 - 9) / 5.4) ** 2 <= 1;
+  return maskIcon(16, 16, solid, (x, y) => {
+    if ((x === 9 && y >= 6 && y <= 8) || (x === 10 && y === 9) || (x === 5 && y === 10)) return 'd';
+    const t = (x - 8) + (y - 9);
+    return t < -3 ? 'S' : t > 3 ? 'd' : 's';
+  });
+}
+
+/** The gravel under every cell, the same on every load. */
+function groundTile(): Sprite {
+  const cv = canvas(16, 16);
+  const P = pen(context(cv));
+  const r = rng(29);
+  P(0, 0, 16, 16, '#26221e');
+  for (let i = 0; i < 26; i++) P((r() * 16) | 0, (r() * 16) | 0, 1, 1, r() < 0.5 ? '#2f2a25' : '#1d1a17');
+  for (let i = 0; i < 4; i++) {
+    const x = (r() * 15) | 0;
+    const y = (r() * 15) | 0;
+    P(x, y, 2, 1, '#3a3530'); P(x + 1, y + 1, 1, 1, '#141210');
+  }
+  return cv;
+}
+
+/** The track under a switch: from its entry to every side it can send the cart to. */
+function junctionTile(entry: Side, exits: readonly Side[]): Sprite {
+  return tile((P) => {
+    const { runs, arcs } = laid(entry, exits);
+    track(P, runs, arcs);
+  });
+}
+
+// --- The three switches Jev works -----------------------------------------------
+//
+// Each stands in the middle of its junction, drawn the right way up whatever way
+// the track runs, and each is a different machine so a glance tells them apart:
+// a lever with a target disc picks one of a few ways (`choice`), a barrier arm
+// says yes or no (`noul`), and a balance weighs the sentence on a scale (`score`).
+
+function leverDevice(): Sprite {
+  return tile((P) => {
+    P(5, 1, 6, 6, 'k'); P(6, 2, 4, 4, 'R'); P(8, 4, 2, 2, 'r'); P(6, 3, 4, 1, 'c'); P(6, 2, 1, 1, '#e0705f');
+    P(7, 7, 2, 5, 'k'); P(7, 7, 1, 5, 'I'); P(8, 7, 1, 5, 'i');
+    P(9, 8, 4, 2, 'k'); P(10, 8, 2, 1, 'I'); P(12, 7, 2, 2, 'k'); P(12, 7, 1, 1, 'S');
+    P(4, 11, 8, 4, 'k'); P(5, 12, 6, 1, 'h'); P(5, 13, 6, 1, 'w');
+  });
+}
+
+function gateDevice(): Sprite {
+  return tile((P) => {
+    P(1, 3, 4, 12, 'k'); P(2, 4, 1, 10, 'I'); P(3, 4, 1, 10, 'i');
+    P(0, 13, 6, 3, 'k'); P(1, 14, 4, 1, 'w');
+    P(4, 6, 12, 4, 'k');
+    for (let x = 5; x < 15; x++) {
+      const red = ((x - 5) >> 1) % 2 === 0;
+      P(x, 7, 1, 1, red ? 'R' : 'c'); P(x, 8, 1, 1, red ? 'r' : 'C');
+    }
+    P(1, 5, 4, 3, 'k'); P(2, 6, 2, 1, 'g');
+  });
+}
+
+function scaleDevice(): Sprite {
+  return tile((P) => {
+    P(7, 1, 2, 2, 'k'); P(7, 1, 1, 1, 'G');
+    P(1, 3, 14, 3, 'k'); P(2, 4, 12, 1, 'G'); P(7, 4, 2, 1, 'o');
+    P(7, 6, 2, 7, 'k'); P(7, 6, 1, 7, 'g'); P(8, 6, 1, 7, 'o');
+    for (const left of [1, 10]) {
+      P(left + 2, 6, 1, 3, 'k');
+      P(left, 9, 5, 3, 'k'); P(left + 1, 9, 3, 1, 'G'); P(left + 1, 10, 3, 1, 'o');
+    }
+    P(4, 13, 8, 3, 'k'); P(5, 14, 6, 1, 'g');
+  });
+}
+
+// --- The cart -------------------------------------------------------------------
+
+/** The mine cart, side on, laden with ore. Two frames, side by side, for the wheels. */
+function cartStrip(): Sprite {
+  const cv = canvas(32, 16);
+  const P = pen(context(cv));
+  for (const frame of [0, 1]) {
+    const o = frame * 16;
+    // The load: lumps of gold above the rim.
+    P(o + 3, 2, 10, 4, 'k');
+    P(o + 4, 3, 3, 2, 'g'); P(o + 4, 3, 1, 1, 'G'); P(o + 8, 2, 3, 3, 'k'); P(o + 8, 3, 2, 2, 'g'); P(o + 8, 3, 1, 1, 'G');
+    P(o + 11, 4, 1, 1, 'o'); P(o + 6, 4, 2, 1, 'o');
+    // The tub: an iron rim, a wooden body banded in iron, narrowing to the base.
+    P(o + 1, 5, 14, 2, 'k'); P(o + 2, 6, 12, 1, 'I');
+    P(o + 1, 7, 14, 1, 'k'); P(o + 2, 7, 12, 1, 'W'); P(o + 2, 7, 1, 1, 'h');
+    P(o + 2, 8, 12, 2, 'k'); P(o + 3, 8, 10, 1, 'i'); P(o + 3, 9, 10, 1, 'W'); P(o + 3, 9, 1, 1, 'h');
+    P(o + 3, 10, 10, 2, 'k'); P(o + 4, 10, 8, 1, 'w');
+    // Two wheels whose spokes turn between the frames.
+    for (const wx of [3, 9]) {
+      P(o + wx + 1, 11, 2, 1, 'k'); P(o + wx, 12, 4, 2, 'k'); P(o + wx + 1, 14, 2, 1, 'k');
+      P(o + wx + 1, 12, 1, 1, frame === 0 ? 'S' : 'd'); P(o + wx + 2, 12, 1, 1, frame === 0 ? 'd' : 'S');
+      P(o + wx + 1, 13, 1, 1, frame === 0 ? 'd' : 'S'); P(o + wx + 2, 13, 1, 1, frame === 0 ? 'S' : 'd');
+    }
+  }
+  return cv;
+}
+
+// --- Icons ----------------------------------------------------------------------
+
+const ICON_ROWS: Readonly<Record<string, readonly string[]>> = {
+  // From Gridsmith: the scroll the sentence is written on.
+  scroll: ['............', '.PPpppppppP.', '.Pppppppppk.', '..pkkkkkkp..', '..pppppppp..', '..pkkkkkkp..', '..pppppppp..', '..pkkkkp.p..', '..pppppppp..', '.Pppppppppk.', '.PPpppppppP.', '............'],
+  // An arrow curling back: a laid piece goes back to the crate.
+  // A pick: the iron head arched over a wooden haft.
+  pickaxe: ['...kkkkkk...', '.kkSSSSIIkk.', 'kSSkkkkkkIik', 'kkk.kWk..kkk', '....kWk.....', '....khk.....', '....kWk.....', '....khk.....', '....kWk.....', '....kWk.....', '....kwk.....', '....kkk.....'],
+  takeback: ['............', '....kk......', '...kGk......', '..kGGkkkkk..', '.kGGGGGGGGk.', '..kgGkkkkGgk', '...kgk...kgk', '....kk...kgk', '.........kgk', '....kkkkkgk.', '....kooook..', '....kkkkk...'],
+};
+
+function keyIcon(): Sprite {
+  // From Gridsmith, unchanged.
+  const ring = (x: number, y: number): boolean => Math.hypot(x + 0.5 - 3.5, y + 0.5 - 4.5) <= 3.6;
+  const hole = (x: number, y: number): boolean => Math.hypot(x + 0.5 - 3.5, y + 0.5 - 4.5) <= 1.25;
+  const shaft = (x: number, y: number): boolean => y >= 3 && y <= 5 && x >= 6 && x <= 11;
+  const bit = (x: number, y: number): boolean =>
+    x >= 8 && x <= 11 && y >= 6 && y <= 9 && !(x === 10 && y >= 7) && !(x === 11 && y === 9);
+  return maskIcon(
+    12,
+    12,
+    (x, y) => ring(x, y) || shaft(x, y) || bit(x, y),
+    (x, y) => (hole(x, y) ? 'x' : y <= 3 ? 'G' : y >= 6 ? 'o' : 'g'),
+  );
+}
+
+/**
+ * Every piece of track and every switch, as CSS-ready sprites, by name.
+ *
+ * The names are what `mount.ts` asks the stylesheet for: `straight-0` to
+ * `straight-3` and the same for every turnable kind, `rock`, `ground`,
+ * `junction-<entry>-<exits>` with the exits in N, E, S, W order, and
+ * `device-<question type>`.
+ */
+export function drawTrackArt(): Readonly<Record<string, Sprite>> {
+  const art: Record<string, Sprite> = { ground: groundTile(), rock: rockTile() };
+  for (const rotation of [0, 1, 2, 3]) {
+    art[`straight-${rotation}`] = straightTile(rotation);
+    art[`curve-${rotation}`] = curveTile(rotation);
+    art[`cross-${rotation}`] = crossTile(rotation);
+    art[`start-${rotation}`] = startTile(rotation);
+    art[`mine-${rotation}`] = mineTile(rotation);
+    art[`tunnel-${rotation}`] = tunnelTile(rotation);
+  }
+  for (const entry of SIDES) {
+    const others = SIDES.filter((side) => side !== entry);
+    for (let mask = 1; mask < 8; mask++) {
+      const exits = others.filter((_, i) => (mask >> i) & 1);
+      art[`junction-${entry}-${exits.join('')}`] = junctionTile(entry, exits);
+    }
+  }
+  art['device-choice'] = leverDevice();
+  art['device-noul'] = gateDevice();
+  art['device-score'] = scaleDevice();
+  art['cart'] = cartStrip();
+  return art;
+}
+
+/** The icons the page's labels and buttons wear, as CSS backgrounds. */
+export function drawIcons(): Readonly<Record<string, Sprite>> {
+  const icons: Record<string, Sprite> = { key: keyIcon() };
+  for (const [name, rows] of Object.entries(ICON_ROWS)) icons[name] = fromRows(rows);
+  return icons;
+}
