@@ -46,6 +46,11 @@ def test_refuses_more_than_200_characters(level: Level) -> None:
     assert violation(level, "a" * 201).kind == "too_long"
 
 
+def test_the_length_counts_formatting_characters(level: Level) -> None:
+    # Removed for finding words, but still part of what the player sent.
+    assert violation(level, "a" * 200 + "\u200b").kind == "too_long"
+
+
 def test_refuses_more_words_than_the_level_allows(level: Level) -> None:
     v = violation(level, "one two three four five six")
     assert v.kind == "too_many_words"
@@ -60,6 +65,8 @@ def test_refuses_more_words_than_the_level_allows(level: Level) -> None:
         ("snake_case", ["snake", "case"]),
         ("CARVÃO 42", ["carvao", "42"]),
         ("  ", []),
+        ("go\u200bld", ["gold"]),  # a formatting character does not split a word
+        ("ou\u00adro", ["ouro"]),
     ],
 )
 def test_a_word_is_a_run_of_letters_and_digits(sentence: str, expected: list[str]) -> None:
@@ -70,6 +77,11 @@ def test_punctuation_counts_no_words(level: Level) -> None:
     # Five words once punctuation and the hyphen split them: at the limit, not over it.
     check_sentence(level, "one-two, three... four; five!")
     assert violation(level, "one-two, three... four; five! six").kind == "too_many_words"
+
+
+def test_formatting_characters_count_no_words(level: Level) -> None:
+    # A zero-width space inside `five` and a word joiner inside `four`: still five words.
+    check_sentence(level, "one two three fo\u2060ur fi\u200bve")
 
 
 @pytest.mark.parametrize(
@@ -93,6 +105,10 @@ def test_punctuation_counts_no_words(level: Level) -> None:
         ("\U0001d40e\U0001d414\U0001d411\U0001d40e", "our"),
         ("\U0001d420\U0001d428\U0001d425\U0001d41d", "gold"),  # mathematical bold small
         ("\uff27\uff2f\uff2c\uff24", "gold"),  # fullwidth
+        # Formatting characters do not split a word away from the Taboo.
+        ("go\u200bld", "gold"),  # zero-width space
+        ("ou\u00adro", "our"),  # soft hyphen
+        ("g\u2060old", "gold"),  # word joiner
     ],
 )
 def test_refuses_a_taboo_word(level: Level, sentence: str, term: str) -> None:

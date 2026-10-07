@@ -7,6 +7,11 @@ spaces, punctuation, hyphens, apostrophes. So `don't` is two words, `don` and `t
 `gold-ish` is `gold` and `ish`. The same definition counts words for `max_words` and finds them
 for the Taboo, so the two rules can never disagree about what the player wrote.
 
+Formatting characters (Unicode category `Cf`: the soft hyphen, the zero-width space, the word
+joiner and the like) are removed before the sentence is split, so they can neither split a word
+nor hide one from the Taboo: `go`, a zero-width space and `ld` are the one word `gold`. They
+are removed for finding words only; `too_long` still counts every character the player sent.
+
 ## How the Taboo compares
 
 Both the sentence and the level's terms are folded the same way before they meet: decomposed
@@ -51,8 +56,9 @@ def fold(text: str) -> str:
 
 
 def words(sentence: str) -> list[str]:
-    """The words of `sentence`, folded."""
-    return _WORD.findall(fold(sentence))
+    """The words of `sentence`, folded, once its formatting characters are gone."""
+    visible = "".join(ch for ch in sentence if unicodedata.category(ch) != "Cf")
+    return _WORD.findall(fold(visible))
 
 
 def check_sentence(level: Level, sentence: str) -> None:
