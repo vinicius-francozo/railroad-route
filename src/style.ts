@@ -489,7 +489,7 @@ const RESPONSIVE = `
   .rr-cart[data-end="derailed"] { rotate: 35deg; }
   .rr-cart[data-end="wrong_tunnel"] { opacity: .15; }
   .rr-track-board[aria-busy="true"] .rr-status::before, .rr-lantern-wrap::before, .rr-post-lamp::before,
-  .rr-standing::before { animation: none; }
+  .rr-standing:has(.rr-floor-lamp)::before { animation: none; }
   .rr-critters .rr-rat { animation: none; transform: none; left: 62%; }
 }
 `;
