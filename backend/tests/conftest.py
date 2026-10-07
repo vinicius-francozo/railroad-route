@@ -48,5 +48,6 @@ def make_level() -> Callable[..., Level]:
 
 @pytest.fixture
 def tuning() -> Tuning:
-    """The provisional values in `levels/tuning.json`, copied so the tests do not move with it."""
+    """Fixed values for the engine tests, deliberately not read from `levels/tuning.json` so the
+    tests do not move when the game is retuned. (They were its provisional values.)"""
     return Tuning(choice_min_confidence=0.8, noul_margin=0.15, score_margin=0.25)
