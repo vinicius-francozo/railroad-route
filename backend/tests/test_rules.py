@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import re
+import unicodedata
 from collections.abc import Callable
 
 import pytest
 
 from railroad.models import Cell, Level, RuleViolation
-from railroad.rules import check_sentence, words
+from railroad.rules import (
+    DEFAULT_IGNORABLE,
+    DEFAULT_IGNORABLE_VERSION,
+    check_sentence,
+    words,
+)
 
 
 @pytest.fixture
@@ -79,6 +86,7 @@ def test_refuses_more_words_than_the_level_allows(level: Level) -> None:
         ("  ", []),
         ("go\u200bld", ["gold"]),  # a formatting character does not split a word
         ("ou\u00adro", ["ouro"]),
+        ("go\ufe0fld", ["gold"]),  # nor does a variation selector
     ],
 )
 def test_a_word_is_a_run_of_letters_and_digits(sentence: str, expected: list[str]) -> None:
@@ -121,12 +129,41 @@ def test_formatting_characters_count_no_words(level: Level) -> None:
         ("go\u200bld", "gold"),  # zero-width space
         ("ou\u00adro", "our"),  # soft hyphen
         ("g\u2060old", "gold"),  # word joiner
+        # Nor do the other invisible characters, or a mark of any kind.
+        ("the cart carries go\ufe0fld", "gold"),  # variation selector-16
+        ("go\u034fld", "gold"),  # combining grapheme joiner
+        ("go\u3164ld", "gold"),  # Hangul filler, a letter that shows nothing
+        ("go\U000e0100ld", "gold"),  # variation selector-17
+        ("g\u20ddold", "gold"),  # combining enclosing circle
+        ("go\u17b4ld", "gold"),  # Khmer inherent vowel
     ],
 )
 def test_refuses_a_taboo_word(level: Level, sentence: str, term: str) -> None:
     v = violation(level, sentence)
     assert v.kind == "taboo"
     assert v.detail == f"forbidden on this level: {term}"
+
+
+INVISIBLE_NAME = re.compile("VARIATION SELECTOR|GRAPHEME JOINER|INHERENT|FILLER")
+
+
+def test_the_default_ignorable_table_matches_this_unicode() -> None:
+    # The table was copied from the Unicode version `unicodedata` runs on; a newer Python may
+    # ship a newer Unicode, and then the table has to be copied again.
+    assert unicodedata.unidata_version == DEFAULT_IGNORABLE_VERSION
+    previous_end = -1
+    for start, end in DEFAULT_IGNORABLE:
+        assert previous_end < start <= end
+        previous_end = end
+        # Each line of the source file is one category: assigned where it named a character,
+        # still unassigned where it said reserved.
+        chars = [chr(cp) for cp in range(start, end + 1)]
+        (category,) = {unicodedata.category(ch) for ch in chars}
+        if category in {"Mn", "Lo"}:
+            # The only marks and letters Unicode declares ignorable are these invisible ones.
+            assert all(INVISIBLE_NAME.search(unicodedata.name(ch)) for ch in chars)
+        else:
+            assert category in {"Cf", "Cn"}
 
 
 def test_taboo_lists_every_term_hit_as_the_level_writes_it(level: Level) -> None:
