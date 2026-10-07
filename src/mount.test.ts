@@ -886,6 +886,16 @@ describe('when the run is refused or fails', () => {
     expect(app.text()).toContain('Paste your own TypeSafe key');
   });
 
+  it('says no free runs are left once they are spent, whatever the last run said', async () => {
+    const app = await ready({ runs: [{ status: 200, body: ARRIVED }, { status: 429, body: { error: 'quota_exhausted', detail: '' } }] });
+    app.send.click();
+    await settle();
+    expect(app.quota.textContent).toBe('Free runs left today: 7.');
+    app.send.click();
+    await settle();
+    expect(app.quota.textContent).toBe('Free runs left today: 0.');
+  });
+
   it('says a refused key was refused', async () => {
     const app = await ready({ runs: [{ status: 401, body: { error: 'key_rejected', detail: 'the key was refused' } }] });
     app.send.click();

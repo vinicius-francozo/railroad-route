@@ -720,6 +720,8 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
         say('');
         showFailure(response.status === 200 ? { title: UI_TEXT.unexpected } : describeRunError(response.status, body));
         if (response.status === 429) {
+          // The free runs are spent: the count from the last run is out of date.
+          quota.textContent = describeQuota(false, { remaining: 0, byok: false });
           keyField.hidden = false;
           keyField.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
         }
