@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { BALLAST, exitMarkNames, METER_PAL, meterRows, ORE_MARKS, PAL } from './art';
 import type { Reading, Switch } from './contract';
 import {
   describeOutcome,
@@ -8,6 +9,7 @@ import {
   describeRunError,
   describeSquare,
   exitLines,
+  exitMark,
   GLOBAL_TABOO,
   levelOption,
   noteWarning,
@@ -43,9 +45,9 @@ const reading = (over: Partial<Reading>): Reading => ({
 describe('the switches, as the player reads them', () => {
   it('lists every level of a scale, in order, with where it leads', () => {
     expect(exitLines(SCALE)).toEqual([
-      { answer: '0', meaning: 'calm', side: 'west ←' },
-      { answer: '1', meaning: 'normal', side: 'east →' },
-      { answer: '2', meaning: 'rush', side: 'south ↓' },
+      { answer: '0', meaning: 'calm', side: 'west ←', mark: 'level-0-3' },
+      { answer: '1', meaning: 'normal', side: 'east →', mark: 'level-1-3' },
+      { answer: '2', meaning: 'rush', side: 'south ↓', mark: 'level-2-3' },
     ]);
   });
 
@@ -58,6 +60,111 @@ describe('the switches, as the player reads them', () => {
       'Switch C, scale: How urgent is the delivery?, row 3, column 3',
     );
   });
+});
+
+describe('the mark at the end of each branch', () => {
+  const choice = (options: readonly string[]): Switch => ({
+    id: 'cargo',
+    x: 1,
+    y: 1,
+    entry: 'W',
+    question: { type: 'choice', instructions: 'What does the cart carry?', criteria: Object.fromEntries(options.map((o) => [o, o])) },
+    exits: Object.fromEntries(options.map((o, i) => [o, (['N', 'E', 'S'] as const)[i % 3] ?? 'E'])),
+    threshold: null,
+  });
+  const gate: Switch = {
+    id: 'danger',
+    x: 1,
+    y: 1,
+    entry: 'W',
+    question: { type: 'noul', instructions: 'Is the cargo dangerous?', criteria: { true: 'yes', false: 'no' } },
+    exits: { yes: 'N', no: 'E' },
+    threshold: 0.5,
+  };
+  const scale = (levels: number): Switch => ({ ...SCALE, question: { ...SCALE.question, criteria: Array.from({ length: levels }, (_, i) => `level ${String(i)}`) } as Switch['question'] });
+
+  it('shows a cargo of the game as its ore', () => {
+    const sw = choice(['coal', 'gold', 'crystal']);
+    expect(['coal', 'gold', 'crystal'].map((o) => exitMark(sw, o))).toEqual(['coal', 'gold', 'crystal']);
+  });
+
+  it('gives any other option a pip by its place, so no two share one', () => {
+    const sw = choice(['iron', 'gold', 'salt']);
+    expect(['iron', 'gold', 'salt'].map((o) => exitMark(sw, o))).toEqual(['pip-0', 'gold', 'pip-2']);
+  });
+
+  it('shows the gate’s yes and no', () => {
+    expect([exitMark(gate, 'yes'), exitMark(gate, 'no')]).toEqual(['yes', 'no']);
+  });
+
+  it('lights a meter up to the level a scale’s exit stands for', () => {
+    expect(['0', '1', '2'].map((r) => exitMark(SCALE, r))).toEqual(['level-0-3', 'level-1-3', 'level-2-3']);
+    expect(['0', '1'].map((r) => exitMark(scale(2), r))).toEqual(['level-0-2', 'level-1-2']);
+  });
+
+  it('draws a meter of up to four levels, and no picture for a longer scale', () => {
+    expect(exitMark(scale(4), '3')).toBe('level-3-4');
+    expect(exitMark(scale(5), '4')).toBe(undefined);
+  });
+
+  it('has no pip for an option past the fourth, when the options are not cargo', () => {
+    const sw = choice(['a', 'b', 'c', 'd', 'e']);
+    expect(['a', 'e'].map((o) => exitMark(sw, o))).toEqual([undefined, undefined]);
+  });
+
+  it('has no picture for an answer the switch does not have', () => {
+    expect(exitMark(choice(['coal', 'gold']), 'crystal')).toBe(undefined);
+    expect(exitMark(gate, 'maybe')).toBe(undefined);
+    expect(exitMark(SCALE, '3')).toBe(undefined);
+    expect(exitMark(SCALE, '1.5')).toBe(undefined);
+  });
+
+  it('only ever names a mark the art draws', () => {
+    const drawn = exitMarkNames();
+    const switches = [choice(['coal', 'gold', 'crystal']), choice(['a', 'b', 'c', 'd']), gate, scale(2), scale(3), scale(4)];
+    for (const sw of switches) {
+      for (const result of Object.keys(sw.exits).concat(sw.question.type === 'score' ? sw.question.criteria.map((_, i) => String(i)) : [])) {
+        const mark = exitMark(sw, result);
+        expect(mark === undefined || drawn.includes(mark), `${sw.id} ${result} → ${String(mark)}`).toBe(true);
+      }
+    }
+    expect(exitLines(choice(['coal', 'gold'])).map((line) => line.mark)).toEqual(['coal', 'gold']);
+  });
+});
+
+describe('the exit marks, as they are drawn', () => {
+  /** WCAG 2's contrast ratio of two `#rrggbb` colours. */
+  const contrast = (a: string, b: string): number => {
+    const luminance = (hex: string): number => {
+      const [r, g, b2] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b2 ?? 0);
+    };
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+  };
+
+  it('gives coal a lit edge that stands out from the dark ballast, a graphic’s 3:1 at least', () => {
+    const rows = ORE_MARKS['coal'] ?? [];
+    // The outermost painted pixel of each row, from the left: the edge the lamp catches.
+    const edge = rows.map((row) => row.replace(/^\.+/, '')[0] ?? '.');
+    const lit = edge.filter((ch) => ch !== 'k').map((ch) => PAL[ch] ?? '#000000');
+    expect(lit.length).toBeGreaterThanOrEqual(3);
+    for (const colour of lit) expect(contrast(colour, BALLAST), colour).toBeGreaterThanOrEqual(3);
+  });
+
+  for (const levels of [2, 3, 4]) {
+    it(`tells the ${String(levels)} levels of a scale apart by colour and by the count of lit bars`, () => {
+      const lit = Array.from({ length: levels }, (_, level) => {
+        const pixels = meterRows(level, levels).join('').split('').filter((ch) => ch in METER_PAL);
+        return { colours: new Set(pixels), bars: pixels.length };
+      });
+      for (const { colours } of lit) expect(colours.size).toBe(1);
+      expect(new Set(lit.map(({ colours }) => [...colours][0])).size).toBe(levels);
+      expect(new Set(lit.map(({ bars }) => bars)).size).toBe(levels);
+      // Every lit colour reads on the meter's dark face.
+      for (const { colours } of lit) expect(contrast(METER_PAL[[...colours][0] ?? ''] ?? '#000000', PAL['x'] ?? '#000000')).toBeGreaterThanOrEqual(3);
+    });
+  }
 });
 
 describe('the forbidden words, as the player reads them', () => {

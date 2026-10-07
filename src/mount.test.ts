@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { exitMarkNames } from './art';
 import type { PublicLevel, RunRequest, RunResponse } from './contract';
 import { GLOBAL_TABOO, UI_TEXT } from './messages';
-import { mount, mountApp } from './mount';
+import { badgeCorner, mount, mountApp } from './mount';
 import type { AppServices } from './mount';
 import { STARS_ITEM } from './progress';
 import type { ProgressStore } from './progress';
+import { dressScene } from './scene';
 import { FRAME_MS } from './style';
 
 // --- A document, by hand -----------------------------------------------------
@@ -14,7 +16,9 @@ import { FRAME_MS } from './style';
 // to reach for. The page is written against a small slice of the document —
 // create an element, set a property or an attribute, append, replace, listen —
 // and that slice is small enough to stand in for honestly. What it cannot stand
-// in for is layout and drawing, and this file asserts nothing about either.
+// in for is layout and drawing, and this file asserts nothing about either: the
+// scenery is drawn onto canvases whose pens draw nothing, and the tests read
+// only where it went and what it says about itself.
 
 type FakeEvent = { key?: string; preventDefault: () => void };
 
@@ -36,6 +40,17 @@ class FakeElement {
   disabled = false;
   /** As in a browser: a control is a tab stop, anything else is not until it is made one. */
   tabIndex = -1;
+  parent: FakeElement | undefined;
+  /** Inline style properties, as `style.setProperty` sets them. */
+  readonly style = {
+    props: new Map<string, string>(),
+    setProperty(name: string, value: string): void {
+      this.props.set(name, value);
+    },
+  };
+  /** A canvas's size; a canvas here draws nothing. */
+  width = 0;
+  height = 0;
 
   /** Being revealed, hidden and filled, in the order it happened: what tells an alert that announces from one that does not. */
   readonly trace: string[] = [];
@@ -58,13 +73,58 @@ class FakeElement {
   }
 
   append(...nodes: FakeElement[]): void {
+    this.adopt(nodes);
     this.children.push(...nodes);
   }
 
+  prepend(...nodes: FakeElement[]): void {
+    this.adopt(nodes);
+    this.children.unshift(...nodes);
+  }
+
+  before(...nodes: FakeElement[]): void {
+    this.besides(nodes, 0);
+  }
+
+  after(...nodes: FakeElement[]): void {
+    this.besides(nodes, 1);
+  }
+
   replaceChildren(...nodes: FakeElement[]): void {
+    this.adopt(nodes);
     this.children.length = 0;
     this.children.push(...nodes);
     this.trace.push(`filled:${String(nodes.length)}`);
+  }
+
+  private adopt(nodes: readonly FakeElement[]): void {
+    for (const node of nodes) node.parent = this;
+  }
+
+  private besides(nodes: FakeElement[], offset: number): void {
+    const parent = this.parent;
+    if (parent === undefined) throw new TypeError('no parent to put a sibling in');
+    parent.adopt(nodes);
+    parent.children.splice(parent.children.indexOf(this) + offset, 0, ...nodes);
+  }
+
+  /** `.class` selectors only: all the page and the scene ask for. */
+  querySelectorAll(selector: string): FakeElement[] {
+    const wanted = selector.replace(/^\./, '');
+    return descendants(this).slice(1).filter((node) => node.className.split(' ').includes(wanted));
+  }
+
+  querySelector(selector: string): FakeElement | null {
+    return this.querySelectorAll(selector)[0] ?? null;
+  }
+
+  /** A canvas's 2d context: every call accepted, nothing drawn. */
+  getContext(): unknown {
+    return this.ownerDocument.drawing ? { fillRect: () => undefined, drawImage: () => undefined, translate: () => undefined, clearRect: () => undefined } : null;
+  }
+
+  toDataURL(): string {
+    return `data:image/png;base64,${String(this.width)}x${String(this.height)}`;
   }
 
   setAttribute(name: string, value: string): void {
@@ -112,6 +172,16 @@ class FakeElement {
 
 class FakeDocument {
   focused: FakeElement | undefined;
+  /** Whether a canvas gives a context: a browser that will not draw gives none. */
+  drawing = true;
+  readonly documentElement: FakeElement = new FakeElement('html', this);
+  /** Every interval the page started, by its period. */
+  readonly intervals: number[] = [];
+  still = false;
+  readonly defaultView = {
+    matchMedia: (query: string) => ({ matches: query.includes('reduce') && this.still }),
+    setInterval: (_work: () => void, ms: number): number => this.intervals.push(ms),
+  };
 
   createElement(tag: string): FakeElement {
     return new FakeElement(tag, this);
@@ -140,6 +210,16 @@ function byClass(root: FakeElement, className: string): FakeElement {
   const found = descendants(root).find((node) => node.className.split(' ').includes(className));
   if (found === undefined) throw new Error(`no element with class ${className}`);
   return found;
+}
+
+/** The exit marks a switch square shows, by the side each stands on. */
+function marksOf(cell: FakeElement): Record<string, string> {
+  const marks: Record<string, string> = {};
+  for (const node of cell.children.filter((child) => child.className === 'rr-mark')) {
+    const name = /--rr-art-mark-([\w-]+),/.exec(node.attributes.get('style') ?? '')?.[1] ?? '';
+    marks[node.attributes.get('data-side') ?? '?'] = name;
+  }
+  return marks;
 }
 
 /** Every write to `element.textContent`, in order: a live region announces each one. */
@@ -466,8 +546,7 @@ describe('loading the levels', () => {
     expect(app.text()).toContain('Forbidden words: gold, ouro.');
     expect(app.text()).toContain('Up to 5 words');
     expect(app.cell(3, 1).attributes.get('aria-label')).toContain('Switch A');
-    expect(app.art(3, 1)).toContain('--rr-art-junction-W-ES');
-    expect(app.art(3, 1)).toContain('--rr-art-device-choice');
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-junction-W-ES, none)');
     expect(app.art(4, 1)).toContain('--rr-art-mine-0');
   });
 
@@ -511,7 +590,8 @@ describe('loading the levels', () => {
     expect(app.text()).toContain('Is the cargo dangerous?');
     expect(app.text()).not.toContain('What does the cart carry?');
     expect(app.text()).toContain('yes (Jev at least 50% sure)');
-    expect(app.art(3, 1)).toContain('--rr-art-device-noul');
+    expect(byClass(app.cell(3, 1), 'rr-badge').className).toBe('rr-badge rr-type-noul');
+    expect(marksOf(app.cell(3, 1))).toEqual({ E: 'no', S: 'yes' });
   });
 
   for (const [what, options] of [
@@ -528,6 +608,106 @@ describe('loading the levels', () => {
       expect(app.send.disabled).toBe(true);
     });
   }
+});
+
+describe('a switch, on the board and in the list', () => {
+  it('shows its track and one badge, with its letter and a glyph for its kind, hidden from a screen reader', async () => {
+    const app = mountHarness();
+    await settle();
+    const square = app.cell(3, 1);
+    const badges = descendants(square).filter((node) => node.className.split(' ').includes('rr-badge'));
+    expect(badges).toHaveLength(1);
+    expect(badges[0]?.textContent).toBe('A');
+    expect(badges[0]?.className).toBe('rr-badge rr-type-choice');
+    expect(badges[0]?.attributes.get('aria-hidden')).toBe('true');
+    // The square's own label still says it all in words.
+    expect(square.attributes.get('aria-label')).toBe('Switch A, points: What does the cart carry?, row 2, column 4');
+  });
+
+  it('sets the badge in the corner across from the entry, where no branch runs, its letter drawn', async () => {
+    const app = mountHarness();
+    await settle();
+    const badge = byClass(app.cell(3, 1), 'rr-badge');
+    expect(badge.attributes.get('data-corner')).toBe('ne');
+    expect(badge.attributes.get('style')).toBe('--letter: var(--rr-art-letter-A, none)');
+  });
+
+  it('puts at the end of each branch the mark of the answer that leads there, hidden from a screen reader', async () => {
+    const app = mountHarness();
+    await settle();
+    expect(marksOf(app.cell(3, 1))).toEqual({ E: 'gold', S: 'coal' });
+    for (const mark of app.cell(3, 1).children.filter((child) => child.className === 'rr-mark')) {
+      expect(mark.attributes.get('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('wears the same badge in the list, and the same mark beside each answer', async () => {
+    const app = mountHarness();
+    await settle();
+    const item = byClass(app.root, 'rr-switch');
+    expect(item.children[0]?.className).toBe('rr-badge rr-type-choice');
+    expect(item.children[0]?.textContent).toBe('A');
+    const lines = byClass(item, 'rr-exits').children;
+    expect(
+      lines.map((line) => [line.children[1]?.textContent, /--rr-art-mark-([\w-]+),/.exec(line.children[0]?.attributes.get('style') ?? '')?.[1]]),
+    ).toEqual([
+      ['coal', 'coal'],
+      ['gold', 'gold'],
+    ]);
+  });
+
+  it('lights the branch the cart took as it goes, and dims the rest', async () => {
+    const app = await ready();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.get('data-taken')).toBe('E');
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-branch-W-E, none), var(--rr-art-junction-dim-W-ES, none)');
+    // The badge and the marks are still there, to read the dimmed ways against.
+    expect(marksOf(app.cell(3, 1))).toEqual({ E: 'gold', S: 'coal' });
+    expect(byClass(app.cell(3, 1), 'rr-badge').textContent).toBe('A');
+  });
+
+  it('lights the branch at once when motion is reduced', async () => {
+    const app = await ready({ still: true });
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.get('data-taken')).toBe('E');
+  });
+
+  it('lights nothing at a switch the cart never left', async () => {
+    const run: RunResponse = { ...ARRIVED, outcome: 'derailed', readings: [], stars: 0, path: ARRIVED.path.slice(0, 2) };
+    const app = await ready({ runs: [{ status: 200, body: run }] });
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-junction-W-ES, none)');
+  });
+
+  it('puts the junction back as it was once the track is edited, or the next run is sent', async () => {
+    const app = await ready({ runs: [{ status: 200, body: ARRIVED }, { status: 200, body: ARRIVED }, 'hang'] });
+    app.send.click();
+    await settle();
+    app.cell(1, 1).click();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+    expect(app.art(3, 1)).toBe('--art: var(--rr-art-junction-W-ES, none)');
+
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.get('data-taken')).toBe('E');
+    app.send.click();
+    await settle();
+    expect(app.cell(3, 1).attributes.has('data-taken')).toBe(false);
+  });
+});
+
+describe('where a switch’s badge sits', () => {
+  it('goes to a corner across from the entry, the top one when it can', () => {
+    expect(badgeCorner({ entry: 'W' })).toBe('ne');
+    expect(badgeCorner({ entry: 'E' })).toBe('nw');
+    expect(badgeCorner({ entry: 'S' })).toBe('ne');
+    expect(badgeCorner({ entry: 'N' })).toBe('se');
+  });
 });
 
 describe('editing the track', () => {
@@ -651,7 +831,7 @@ describe('the note', () => {
     await settle();
     const counter = byId(app.root, 'rr-sentence-count');
     expect(counter.textContent).toBe('0 / 5 words');
-    app.type("don't, well-known cart");
+    app.type("don't, well-known mine cart");
     expect(counter.textContent).toBe('5 / 5 words');
     expect(counter.attributes.get('data-over')).toBe('false');
     app.type('one two three four five six');
@@ -1159,5 +1339,121 @@ describe('what the page says it is doing', () => {
     app.picker.fire('change');
     app.picker.fire('change');
     expect(writes).toEqual([]);
+  });
+});
+
+// --- The scenery ------------------------------------------------------------------
+
+/** Runs `work` with `doc` standing in for the browser's window and document, as `art.ts` reaches for them. */
+function asBrowser(doc: FakeDocument, work: () => void): void {
+  const g = globalThis as Record<string, unknown>;
+  const saved = { window: g['window'], document: g['document'] };
+  g['window'] = doc.defaultView;
+  g['document'] = doc;
+  try {
+    work();
+  } finally {
+    g['window'] = saved.window;
+    g['document'] = saved.document;
+  }
+}
+
+describe('the mine around the game', () => {
+  /** A page with the levels in and a note written, then dressed; `added` is every element the scene put in. */
+  async function dressed(options: { drawing?: boolean; still?: boolean } = {}) {
+    const app = await ready();
+    app.doc.drawing = options.drawing ?? true;
+    app.doc.still = options.still ?? false;
+    const before = new Set(descendants(app.root));
+    asBrowser(app.doc, () => {
+      dressScene(app.root as unknown as HTMLElement);
+    });
+    return { ...app, added: descendants(app.root).filter((node) => !before.has(node)) };
+  }
+
+  const named = (nodes: readonly FakeElement[], className: string): FakeElement[] =>
+    nodes.filter((node) => node.className.split(' ').includes(className));
+
+  it('draws every picture the board, the switches and the list ask for, a run’s lit branches too', async () => {
+    const app = await dressed();
+    app.send.click();
+    await settle();
+    const drawn = app.doc.documentElement.style.props;
+    expect(app.doc.documentElement.attributes.has('data-art')).toBe(true);
+
+    const asked = new Set<string>();
+    for (const node of descendants(app.root)) {
+      for (const [, name] of (node.attributes.get('style') ?? '').matchAll(/--rr-art-([\w-]+)/g)) asked.add(name ?? '');
+      const type = /rr-type-(\w+)/.exec(node.className)?.[1];
+      if (type !== undefined) asked.add(`type-${type}`);
+    }
+    expect(asked).toContain('branch-W-E');
+    expect(asked).toContain('junction-dim-W-ES');
+    expect(asked).toContain('mark-gold');
+    expect(asked).toContain('type-choice');
+    for (const name of asked) expect(drawn.has(`--rr-art-${name}`), name).toBe(true);
+    for (const mark of exitMarkNames()) expect(drawn.has(`--rr-art-mark-${mark}`), mark).toBe(true);
+    for (const type of ['choice', 'noul', 'score']) expect(drawn.has(`--rr-art-type-${type}`), type).toBe(true);
+    for (const texture of ['earth', 'floor', 'beam', 'post']) expect(drawn.get(`--rr-art-${texture}`)).toMatch(/^url\(data:image\/png/);
+  });
+
+  it('frames the boards in a timbered tunnel mouth: dark rock behind them, a post each side, the cap over it', async () => {
+    const app = await dressed();
+    const shell = byClass(app.root, 'rr-app');
+    expect(shell.children[0]?.className).toBe('rr-side l');
+    expect(shell.children[1]?.className).toBe('rr-side r');
+    expect(shell.children[2]?.className).toBe('rr-tunnel');
+    expect(shell.children[3]?.className).toBe('rr-beam');
+    const tunnel = shell.children[2]!;
+    expect(named(tunnel.children, 'rr-post').map((post) => post.className)).toEqual(['rr-post l', 'rr-post r']);
+    expect(named(tunnel.children, 'rr-brace')).toHaveLength(2);
+    expect(named(tunnel.children, 'rr-post-lamp')).toHaveLength(2);
+  });
+
+  it('hangs a lamp either side of the plaque, in the order the hall’s grid places them', async () => {
+    const app = await dressed();
+    const hall = byClass(app.root, 'rr-hall');
+    const order = hall.children.filter((node) => !node.className.includes('rr-prop')).map((node) => node.className);
+    expect(order).toEqual(['rr-lantern-wrap l', 'rr-plaque', 'rr-lantern-wrap r']);
+  });
+
+  it('puts the mine’s things on the earth to either side, ore in the rock, and a bolt in every corner of each board', async () => {
+    const app = await dressed();
+    const props = named(app.added, 'rr-prop');
+    expect(props.length).toBeGreaterThan(0);
+    for (const side of named(app.added, 'rr-side')) expect(named(descendants(side), 'rr-floor-row')).toHaveLength(1);
+    for (const board of named(descendants(app.root), 'rr-board')) {
+      expect(named(board.children, 'rr-bolt').map((bolt) => bolt.className)).toEqual(['rr-bolt tl', 'rr-bolt tr', 'rr-bolt bl', 'rr-bolt br']);
+    }
+    expect(named(app.added, 'rr-floor')).toHaveLength(1);
+    expect(named(app.added, 'rr-rat')).toHaveLength(1);
+  });
+
+  it('adds nothing a screen reader reads or the keyboard stops on', async () => {
+    const app = await dressed();
+    expect(app.added.length).toBeGreaterThan(30);
+    for (const node of app.added) {
+      expect(node.attributes.get('aria-hidden'), node.className).toBe('true');
+      expect(node.tabIndex, node.className).toBe(-1);
+      expect(['button', 'input', 'select', 'textarea', 'a']).not.toContain(node.tagName);
+    }
+    expect(app.added.map((node) => node.textContent).join('')).toBe('');
+  });
+
+  it('flickers its lamps a frame at a time, and holds them still when motion is reduced', async () => {
+    expect((await dressed()).doc.intervals).toEqual([FRAME_MS]);
+    expect((await dressed({ still: true })).doc.intervals).toEqual([]);
+  });
+
+  it('gives up whole when the browser will not draw: no art, no scenery, the game as it was', async () => {
+    const app = await dressed({ drawing: false });
+    expect(app.added).toEqual([]);
+    expect(app.doc.documentElement.attributes.has('data-art')).toBe(false);
+    expect(app.doc.documentElement.style.props.size).toBe(0);
+    // The board still shows a character for every piece, and plays.
+    expect(app.cell(3, 1).children[0]?.textContent).toBe('◆');
+    app.send.click();
+    await settle();
+    expect(app.cart.attributes.get('data-end')).toBe('arrived');
   });
 });

@@ -18,7 +18,7 @@
  * every handler below catches what it starts.
  */
 
-import type { PlaceableKind, PublicLevel, RunResponse, Side } from './contract';
+import type { PathStep, PlaceableKind, PublicLevel, RunResponse, Side, Switch } from './contract';
 import { newGame, PLACEABLE, place, piecesLaid, runRequest, squareAt, stock, tabooHits, takeBack, turn, countWords } from './game';
 import type { Edit, Game, Square } from './game';
 import {
@@ -29,6 +29,7 @@ import {
   describeRunError,
   describeSquare,
   exitLines,
+  exitMark,
   globalTabooLine,
   levelOption,
   levelRules,
@@ -94,15 +95,24 @@ export function mount(root: HTMLElement): void {
 /** Which tool the board's clicks use: turning, laying one kind, or taking back. */
 type Tool = 'turn' | PlaceableKind | 'takeback';
 
-/** The art a square wears, as the custom properties `scene.ts` defines. */
-function squareArt(square: Square): string {
+/**
+ * The art a square wears, as the custom properties `scene.ts` defines.
+ *
+ * A switch is its track from the entry to every exit. Once a run has gone
+ * through it, `taken` is the side the cart left by: that branch is laid lit
+ * over the whole junction in the ground's tones, so the way the cart went is
+ * the one bright way out.
+ */
+function squareArt(square: Square, taken?: Side): string {
   switch (square.kind) {
     case 'empty':
       return '';
     case 'switch': {
       const order: readonly Side[] = ['N', 'E', 'S', 'W'];
       const exits = order.filter((side) => Object.values(square.switch.exits).includes(side)).join('');
-      return `--art: var(--rr-art-junction-${square.switch.entry}-${exits}, none); --dev: var(--rr-art-device-${square.switch.question.type}, none)`;
+      const entry = square.switch.entry;
+      if (taken === undefined || !exits.includes(taken)) return `--art: var(--rr-art-junction-${entry}-${exits}, none)`;
+      return `--art: var(--rr-art-branch-${entry}-${taken}, none), var(--rr-art-junction-dim-${entry}-${exits}, none)`;
     }
     case 'piece':
       return square.piece === 'rock' ? '--art: var(--rr-art-rock, none)' : `--art: var(--rr-art-${square.piece}-${String(square.rotation)}, none)`;
@@ -143,6 +153,18 @@ function squareGlyph(square: Square): string {
       throw new TypeError(`unknown piece: ${JSON.stringify(unreachable)}`);
     }
   }
+}
+
+/**
+ * The corner of a switch's square its letter sits in, as `ne`, `nw`, `se` or `sw`.
+ *
+ * The corners on the entry's side are where the curves out of the entry run,
+ * and the two across from it are clear, so the letter goes in one of those:
+ * the top one, or the bottom one for a switch the cart enters from the north.
+ * It sits inside the square, so the board's edge does not move it.
+ */
+export function badgeCorner(sw: Pick<Switch, 'entry'>): string {
+  return (sw.entry === 'N' ? 's' : 'n') + (sw.entry === 'E' ? 'w' : 'e');
 }
 
 /** Does `value` look like the answer of a run, enough to animate it? */
@@ -382,6 +404,8 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   /** The square the board's keyboard focus sits on. */
   let focusAt = { x: 0, y: 0 };
   const cells = new Map<string, HTMLButtonElement>();
+  /** The side the last run left each switch by, keyed like `cells`: what lights its branch. */
+  const taken = new Map<string, Side>();
 
   // --- Showing things -----------------------------------------------------------------
 
@@ -454,36 +478,75 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     return index < 0 ? '?' : switchLetter(index);
   };
 
+  /**
+   * A switch's badge: its letter, as the list names it, after a glyph for its
+   * kind. The same element on the board and in the list, so one is read with
+   * the other — on the board the stylesheet shows the letter alone, the only
+   * part with room in the square; decoration in both, since the square's label
+   * and the list's title say the same in words.
+   */
+  const badgeFor = (sw: Switch, letter: string): HTMLSpanElement => {
+    const badge = make('span', `rr-badge rr-type-${sw.question.type}`);
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = letter;
+    return badge;
+  };
+
+  /** The picture of an exit mark, as a CSS background. */
+  const markStyle = (mark: string): string => `--mark: var(--rr-art-mark-${mark}, none)`;
+
   /** Redraws one square from the game. */
   const paintSquare = (x: number, y: number): void => {
-    const cell = cells.get(`${String(x)},${String(y)}`);
+    const at = `${String(x)},${String(y)}`;
+    const cell = cells.get(at);
     if (game === undefined || cell === undefined) return;
     const square = squareAt(game, x, y);
     const letter = square.kind === 'switch' ? letterOf(square.switch.id) : undefined;
+    const way = square.kind === 'switch' ? taken.get(at) : undefined;
     cell.setAttribute('aria-label', describeSquare(square, x, y, letter));
     cell.setAttribute('data-kind', square.kind === 'piece' ? square.piece : square.kind);
     // An empty square is not fixed: a piece from the crate can go there.
     if (square.kind === 'empty') cell.removeAttribute('data-mode');
     else cell.setAttribute('data-mode', square.kind === 'piece' ? square.mode : 'fixed');
+    if (way === undefined) cell.removeAttribute('data-taken');
+    else cell.setAttribute('data-taken', way);
     const piece = make('span', 'rr-piece');
     piece.setAttribute('aria-hidden', 'true');
-    piece.setAttribute('style', squareArt(square));
+    piece.setAttribute('style', squareArt(square, way));
     piece.textContent = squareGlyph(square);
     const parts: HTMLElement[] = [piece];
-    if (letter !== undefined) {
-      const badge = make('span', 'rr-badge');
-      badge.setAttribute('aria-hidden', 'true');
-      badge.textContent = letter;
+    if (square.kind === 'switch' && letter !== undefined) {
+      const sw = square.switch;
+      // At the end of each branch, the mark of the answer that leads there.
+      for (const [result, side] of Object.entries(sw.exits)) {
+        const mark = exitMark(sw, result);
+        if (mark === undefined) continue;
+        const spot = make('span', 'rr-mark');
+        spot.setAttribute('aria-hidden', 'true');
+        spot.setAttribute('data-side', side);
+        spot.setAttribute('style', markStyle(mark));
+        parts.push(spot);
+      }
+      const badge = badgeFor(sw, letter);
+      badge.setAttribute('data-corner', badgeCorner(sw));
+      // On the board the letter is drawn as a sprite, too small for the font.
+      if (/^[A-Z]$/.test(letter)) badge.setAttribute('style', `--letter: var(--rr-art-letter-${letter}, none)`);
       parts.push(badge);
     }
     cell.replaceChildren(...parts);
   };
 
-  /** Takes the last run's cart and trail off the board. */
+  /** Takes the last run's cart, trail and lit branches off the board. */
   const clearRun = (): void => {
     cart.hidden = true;
     cart.removeAttribute('data-end');
     for (const cell of cells.values()) cell.removeAttribute('data-trail');
+    const passed = [...taken.keys()];
+    taken.clear();
+    for (const at of passed) {
+      const [x, y] = at.split(',').map(Number);
+      if (x !== undefined && y !== undefined) paintSquare(x, y);
+    }
   };
 
   /** Makes square (x, y) the board's one tab stop, and answers it. */
@@ -582,7 +645,7 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     }
     switchesList.replaceChildren(
       ...level.switches.map((sw, index) => {
-        const item = make('li', iconClass('rr-switch', `device-${sw.question.type}`));
+        const item = make('li', 'rr-switch');
         const title = make('p', 'rr-switch-title');
         title.textContent = `${switchLetter(index)} · ${switchKind(sw)}: ${sw.question.instructions}`;
         const exits = make('ul', 'rr-exits');
@@ -595,11 +658,17 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
             meaning.textContent = ` — ${line.meaning} `;
             const side = make('span', 'rr-exit-side');
             side.textContent = line.side;
+            if (line.mark !== undefined) {
+              const mark = make('span', 'rr-exit-mark');
+              mark.setAttribute('aria-hidden', 'true');
+              mark.setAttribute('style', markStyle(line.mark));
+              exit.append(mark);
+            }
             exit.append(answer, meaning, side);
             return exit;
           }),
         );
-        item.append(title, exits);
+        item.append(badgeFor(sw, switchLetter(index)), title, exits);
         return item;
       }),
     );
@@ -637,10 +706,20 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
 
   // --- The run ------------------------------------------------------------------------
 
-  /** Moves the cart onto square (x, y) of the board. */
-  const putCart = (x: number, y: number): void => {
-    cart.setAttribute('style', `--cx: ${String(x)}; --cy: ${String(y)}`);
-    cells.get(`${String(x)},${String(y)}`)?.setAttribute('data-trail', '');
+  /**
+   * Moves the cart onto the square of `step`. On a switch, the branch it
+   * leaves by lights up as it goes.
+   */
+  const putCart = (step: PathStep): void => {
+    const at = `${String(step.x)},${String(step.y)}`;
+    cart.setAttribute('style', `--cx: ${String(step.x)}; --cy: ${String(step.y)}`);
+    cells.get(at)?.setAttribute('data-trail', '');
+    if (game === undefined || step.to_side === null) return;
+    const square = squareAt(game, step.x, step.y);
+    if (square.kind === 'switch' && Object.values(square.switch.exits).includes(step.to_side)) {
+      taken.set(at, step.to_side);
+      paintSquare(step.x, step.y);
+    }
   };
 
   /**
@@ -655,11 +734,11 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     if (path.length === 0) return;
     cart.hidden = false;
     if (services.reducedMotion()) {
-      for (const step of path) putCart(step.x, step.y);
+      for (const step of path) putCart(step);
     } else {
       cart.setAttribute('data-moving', '');
       for (const step of path) {
-        putCart(step.x, step.y);
+        putCart(step);
         await services.wait(FRAME_MS);
       }
       cart.removeAttribute('data-moving');
