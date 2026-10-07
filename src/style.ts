@@ -369,6 +369,9 @@ const RESPONSIVE = `
   .rr-plan-foot .rr-failure { max-height: none; }
   .rr-viewport { container-type: inline-size; min-height: 0; }
   .rr-readings { height: auto; }
+  /* the run scrolls the board into view, and the readings then grow under it:
+     the browser must not hold on to the form below and scroll the board away */
+  .rr-plan-board { overflow-anchor: none; }
 }
 @supports (width: round(down, 10px, 4px)) {
   @media (max-width: 900px), (max-height: 560px) {

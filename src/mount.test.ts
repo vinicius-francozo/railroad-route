@@ -676,6 +676,31 @@ describe('sending the cart', () => {
     expect(app.cell(0, 0).attributes.has('data-trail')).toBe(false);
   });
 
+  it('brings the board into view before the cart rolls, and only for a run that rolls', async () => {
+    const app = await ready({ runs: [{ status: 502, body: { error: 'jev_unavailable', detail: '' } }, { status: 200, body: ARRIVED }] });
+    const well = byClass(app.root, 'rr-viewport');
+    app.send.click();
+    await settle();
+    expect(well.scrolled).toEqual([]);
+
+    const order: string[] = [];
+    const scrollIntoView = well.scrollIntoView.bind(well);
+    well.scrollIntoView = (options?: unknown) => {
+      order.push(`scrolled with ${JSON.stringify(options)} at step ${String(app.waits.length)}`);
+      scrollIntoView(options);
+    };
+    app.send.click();
+    await settle();
+    expect(order).toEqual(['scrolled with {"block":"nearest","behavior":"smooth"} at step 0']);
+  });
+
+  it('brings the board into view at once when motion is reduced', async () => {
+    const app = await ready({ still: true });
+    app.send.click();
+    await settle();
+    expect(byClass(app.root, 'rr-viewport').scrolled).toEqual([{ block: 'nearest', behavior: 'auto' }]);
+  });
+
   it('puts the cart straight where it stopped when motion is reduced', async () => {
     const app = await ready({ still: true });
     app.send.click();

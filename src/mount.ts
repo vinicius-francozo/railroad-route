@@ -720,6 +720,10 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
       }
       readingsBefore();
       say(UI_TEXT.onTrack);
+      // On a narrow screen the board is above the button, out of sight once
+      // the note is written: brought into view so the run is seen. Where it is
+      // already in view, as on a desktop, nothing moves.
+      viewport.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
       await roll(body);
       stars = recordStars(services.storage, playing.level.id, body.stars);
       refreshPicker();
