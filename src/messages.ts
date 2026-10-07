@@ -198,7 +198,7 @@ export function describeSquare(square: Square, x: number, y: number, letter?: st
     case 'empty':
       return `Empty, ${where}`;
     case 'switch':
-      return `Switch ${letter ?? ''}, ${switchKind(square.switch).toLowerCase()}: ${square.switch.question.instructions} ${where}`;
+      return `Switch ${letter ?? ''}, ${switchKind(square.switch).toLowerCase()}: ${square.switch.question.instructions}, ${where}`;
     case 'piece': {
       const name = PIECE_WORDS[square.piece];
       const how =

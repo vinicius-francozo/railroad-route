@@ -52,7 +52,7 @@ describe('the switches, as the player reads them', () => {
 
   it('describes a switch square with its question', () => {
     expect(describeSquare({ kind: 'switch', switch: SCALE }, 2, 2, 'C')).toBe(
-      'Switch C, scale: How urgent is the delivery? row 3, column 3',
+      'Switch C, scale: How urgent is the delivery?, row 3, column 3',
     );
   });
 });
