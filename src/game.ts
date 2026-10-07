@@ -168,28 +168,76 @@ export function runRequest(game: Game, sentence: string): RunRequest {
 
 // --- The sentence ---------------------------------------------------------------
 //
-// The same rules as the backend's `rules.py`, which is the authority:
+// The same rules as the backend's `rules.py`, which is the authority, in the
+// same order:
 //
+// - every invisible character is taken out of the whole sentence first: each
+//   formatting character (category `Cf`: the soft hyphen, the zero-width
+//   space…) and each other Default_Ignorable_Code_Point (the variation
+//   selectors, the Hangul fillers…), so `go`, a zero-width space and `ld` are
+//   the one word `gold`;
+// - the sentence is then folded: decomposed (NFKD), case taken out, decomposed
+//   again and stripped of every mark (category `M`: Mn, Mc and Me), so
+//   "Dourado" meets "dourad" and 𝐆𝐎𝐋𝐃 in mathematical bold meets "gold";
 // - a word is a maximal run of Unicode letters or digits; everything else —
 //   spaces, punctuation, apostrophes, hyphens, underscores — separates words,
-//   so "don't" is two words and "well-known" is two;
-// - for the Taboo, the sentence and the terms are folded alike: case taken out,
-//   decomposed (NFKD) and stripped of combining marks, so "Dourado" meets
-//   "dourad"; and a term blocks every word that *starts* with it.
+//   so "don't" is two words and "well-known" is two. A sentence with no word at
+//   all, "!!!" or blanks alone, is empty;
+// - for the Taboo the terms are folded alike, and a term blocks every word that
+//   *starts* with it.
 //
 // One approximation: Python's `casefold` is done here as `toLowerCase`. They
 // differ on a handful of letters — `ß` folds to "ss" in Python and stays `ß`
 // here — so on those the warning can miss a word the backend then refuses.
 // The warning is advice; the refusal is the rule.
 
+/**
+ * The code points with the Default_Ignorable_Code_Point property, the same
+ * table as `DEFAULT_IGNORABLE` in the backend's `rules.py` (Unicode 15.0.0),
+ * pair for pair. JavaScript's regular expressions do not expose the property.
+ */
+const DEFAULT_IGNORABLE: readonly (readonly [number, number])[] = [
+  [0x00ad, 0x00ad],
+  [0x034f, 0x034f],
+  [0x061c, 0x061c],
+  [0x115f, 0x1160],
+  [0x17b4, 0x17b5],
+  [0x180b, 0x180d],
+  [0x180e, 0x180e],
+  [0x180f, 0x180f],
+  [0x200b, 0x200f],
+  [0x202a, 0x202e],
+  [0x2060, 0x2064],
+  [0x2065, 0x2065],
+  [0x2066, 0x206f],
+  [0x3164, 0x3164],
+  [0xfe00, 0xfe0f],
+  [0xfeff, 0xfeff],
+  [0xffa0, 0xffa0],
+  [0xfff0, 0xfff8],
+  [0x1bca0, 0x1bca3],
+  [0x1d173, 0x1d17a],
+  [0xe0000, 0xe0000],
+  [0xe0001, 0xe0001],
+  [0xe0002, 0xe001f],
+  [0xe0020, 0xe007f],
+  [0xe0080, 0xe00ff],
+  [0xe0100, 0xe01ef],
+  [0xe01f0, 0xe0fff],
+];
+
+const hex = (code: number): string => `\\u{${code.toString(16)}}`;
+const IGNORABLE = new RegExp(`[${DEFAULT_IGNORABLE.map(([a, b]) => `${hex(a)}-${hex(b)}`).join('')}]`, 'gu');
+
 /** `text` with case and accents taken out, as the backend folds it. */
 export function fold(text: string): string {
-  return text.toLowerCase().normalize('NFKD').replace(/\p{M}/gu, '');
+  return text.normalize('NFKD').toLowerCase().normalize('NFKD').replace(/\p{M}/gu, '');
 }
 
-/** The words of `sentence`, folded. */
+/** The words of `sentence`, folded, once its invisible characters are gone. */
 export function words(sentence: string): string[] {
-  return fold(sentence).match(/[\p{L}\p{N}]+/gu) ?? [];
+  const visible = sentence.replace(/\p{Cf}/gu, '');
+  return fold(visible.replace(IGNORABLE, '')).match(/[\p{L}\p{N}]+/gu) ?? [];
 }
 
 export function countWords(sentence: string): number {

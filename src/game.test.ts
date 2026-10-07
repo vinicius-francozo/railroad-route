@@ -222,6 +222,40 @@ describe('counting words the way the backend does', () => {
     expect(words('Carvão é pesado')).toEqual(['carvao', 'e', 'pesado']);
     expect(countWords('уголь и золото')).toBe(3);
   });
+
+  it('finds no word in punctuation, blanks or invisible characters alone', () => {
+    expect(countWords('!!!')).toBe(0);
+    expect(countWords('\u200b')).toBe(0);
+    expect(countWords(' \u00ad\ufe0f ')).toBe(0);
+    // A Hangul filler is a letter to Unicode, and an ignorable one: no word.
+    expect(countWords('\u3164')).toBe(0);
+  });
+
+  it('takes formatting characters out before splitting, so they join a word', () => {
+    expect(words('go\u00adld nuggets')).toEqual(['gold', 'nuggets']);
+    expect(words('go\u200bld')).toEqual(['gold']);
+    expect(words('go\u2060ld')).toEqual(['gold']);
+    // Formatting characters that are not default-ignorable go too.
+    expect(words('go\u0600ld')).toEqual(['gold']);
+    expect(words('go\ufff9ld')).toEqual(['gold']);
+  });
+
+  it('takes the other default-ignorable code points out too', () => {
+    expect(words('go\ufe0fld')).toEqual(['gold']);
+    expect(words('go\u3164ld')).toEqual(['gold']);
+    expect(words('go\u{e0101}ld')).toEqual(['gold']);
+  });
+
+  it('takes out marks of every kind: nonspacing, spacing and enclosing', () => {
+    expect(words('go\u0301ld')).toEqual(['gold']);
+    expect(words('go\u0903ld')).toEqual(['gold']);
+    expect(words('go\u20ddld')).toEqual(['gold']);
+  });
+
+  it('reads letters in a mathematical style as the plain letters', () => {
+    expect(words('𝐆𝐎𝐋𝐃 nuggets')).toEqual(['gold', 'nuggets']);
+    expect(words('ＧＯＬＤ')).toEqual(['gold']);
+  });
 });
 
 describe('spotting forbidden words', () => {
@@ -238,6 +272,13 @@ describe('spotting forbidden words', () => {
 
   it('lists the terms hit in the level’s order, once each', () => {
     expect(tabooHits(LEVEL, 'dourado gold gold')).toEqual(['gold', 'dourad']);
+  });
+
+  it('finds a term written in styled letters, or broken by an invisible character or a mark', () => {
+    expect(tabooHits(LEVEL, '𝐆𝐎𝐋𝐃 nuggets')).toEqual(['gold']);
+    expect(tabooHits(LEVEL, 'go\u00adld')).toEqual(['gold']);
+    expect(tabooHits(LEVEL, 'O\ufe0fURO')).toEqual(['ouro']);
+    expect(tabooHits(LEVEL, 'dou\u0903rado')).toEqual(['dourad']);
   });
 
   it('says nothing about a clean sentence', () => {

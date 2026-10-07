@@ -610,6 +610,28 @@ describe('the note', () => {
     expect(app.sent).toEqual([]);
     expect(app.text()).toContain(UI_TEXT.emptySentence);
   });
+
+  it('asks for a note instead of sending one with no word in it', async () => {
+    for (const note of ['!!!', '\u200b', ' \u00ad\ufe0f\u3164 ']) {
+      const app = mountHarness();
+      await settle();
+      app.type(note);
+      app.send.click();
+      await settle();
+      expect(app.sent).toEqual([]);
+      expect(app.text()).toContain(UI_TEXT.emptySentence);
+    }
+  });
+
+  it('counts and warns about a forbidden word hidden by an invisible character or styled letters', async () => {
+    const app = mountHarness();
+    await settle();
+    app.type('go\u00adld nuggets');
+    expect(byId(app.root, 'rr-sentence-count').textContent).toBe('2 / 5 words');
+    expect(app.text()).toContain('It uses a forbidden word: gold.');
+    app.type('𝐆𝐎𝐋𝐃 nuggets');
+    expect(app.text()).toContain('It uses a forbidden word: gold.');
+  });
 });
 
 describe('sending the cart', () => {

@@ -669,7 +669,9 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     if (busy || game === undefined) return;
     const playing = game;
     showFailure(undefined);
-    if (sentence.value.trim() === '') {
+    // A note with no word in it, blanks, punctuation or invisible characters
+    // alone, is the backend's `empty_sentence`: refused here, spending nothing.
+    if (countWords(sentence.value) === 0) {
       showFailure({ title: UI_TEXT.emptySentence });
       return;
     }
