@@ -41,6 +41,8 @@ export const UI_TEXT = {
 
   keyLabel: 'Your TypeSafe key',
   keyPlaceholder: 'your TypeSafe key',
+  keyInvalid:
+    'That key has characters a key cannot have, such as spaces or curly quotes. Copy it again from TypeSafe and paste it into the key field.',
   keyNote:
     'The key lasts for this visit: it is not kept in the browser and never appears in the page’s address. It goes to this game’s server, which hands it to TypeSafe for your runs and keeps nothing.',
 

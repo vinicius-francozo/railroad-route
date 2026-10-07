@@ -1012,6 +1012,22 @@ describe('the visitor’s own key stays in its field', () => {
     expect(app.quota.textContent).toBe('Running on your own key.');
   });
 
+  it('refuses a key with a character no key has, says what to do, and sends nothing', async () => {
+    for (const pasted of ['ts-visitor\u200bsecret', '“ts-visitor-secret”', 'ts visitor secret', 'ts-visitor-sécret']) {
+      const app = await ready({ runs: [{ status: 429, body: { error: 'quota_exhausted', detail: '' } }, { status: 200, body: ARRIVED }] });
+      app.send.click();
+      await settle();
+      app.key.value = pasted;
+      app.send.click();
+      await settle();
+      expect(app.sent).toHaveLength(1);
+      expect(app.failure.hidden).toBe(false);
+      expect(app.text()).toContain(UI_TEXT.keyInvalid);
+      expect(app.text()).not.toContain('secret');
+      expect(app.send.disabled).toBe(false);
+    }
+  });
+
   it('never stores it, and never shows it', async () => {
     const app = await withKey();
     for (const value of app.store.items.values()) expect(value).not.toContain('secret');

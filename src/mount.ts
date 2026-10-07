@@ -703,6 +703,12 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     }
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     const key = keyField.hidden ? '' : keyInput.value.trim();
+    // A character no key has, pasted along with it, would make the request
+    // itself fail, and the page would blame the connection.
+    if (key !== '' && !/^[\x21-\x7e]+$/.test(key)) {
+      showFailure({ title: UI_TEXT.keyInvalid });
+      return;
+    }
     if (key !== '') headers['x-typesafe-key'] = key;
 
     busy = true;
