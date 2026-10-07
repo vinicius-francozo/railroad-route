@@ -261,7 +261,8 @@ const TRACK = `
 }
 .rr-cell { position: relative; width: var(--cell); height: var(--cell); padding: 0; margin: 0; border: 0; cursor: pointer;
   background: #26221e var(--rr-art-ground, none) 0 0 / 100% 100%; image-rendering: pixelated; color: var(--ink); }
-.rr-cell:focus-visible { z-index: 2; }
+/* above a neighbour's switch letter (z-index 2), so no letter breaks the ring */
+.rr-cell:focus-visible { z-index: 3; }
 .rr-piece { position: absolute; inset: 0; display: grid; place-items: center;
   font: 400 calc(var(--cell) * .7)/1 var(--f-num); color: var(--ink-dim);
   background-image: var(--art, none); background-size: 100% 100%; background-repeat: no-repeat;
