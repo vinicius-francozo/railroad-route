@@ -96,7 +96,7 @@
     }
   ],
   "inventory": {"straight": 4, "curve": 2, "cross": 0},
-  "taboo": ["coal", "carvão", "black", "preto", "slow", "calm", "devagar", "tranquil", "rush", "hurry", "pressa", "urgen", "leisur", "whenever", "relax", "wait", "esper", "sosseg", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "top", "bottom", "left", "right", "yes", "ignor", "criteri", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "taboo": ["coal", "carvão", "black", "preto", "slow", "calm", "devagar", "tranquil", "rush", "hurry", "pressa", "urgen", "leisur", "whenever", "relax", "wait", "esper", "sosseg", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "bottom", "left", "right", "yes", "ignor", "criteri", "true", "false", "verdad", "fals", "zero", "two", "three", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "dois", "três", "tres", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
   "max_words": 8,
   "par_pieces": 5,
   "reference_solution": {

@@ -44,7 +44,7 @@
     }
   ],
   "inventory": {"straight": 4, "curve": 1, "cross": 0},
-  "taboo": ["dynamite", "dinamit", "explosiv", "explod", "gunpowder", "pólvora", "powder", "bomb", "bomba", "tnt", "danger", "perig", "hazard", "toxic", "tóxic", "blast", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "top", "bottom", "left", "right", "yes", "ignor", "criteri", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "taboo": ["dynamite", "dinamit", "explosiv", "explos", "explod", "gunpowder", "pólvora", "powder", "bomb", "bomba", "tnt", "danger", "perig", "hazard", "toxic", "tóxic", "blast", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "bottom", "left", "right", "yes", "ignor", "criteri", "true", "false", "verdad", "fals", "zero", "two", "three", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "dois", "três", "tres", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
   "max_words": 10,
   "par_pieces": 4,
   "reference_solution": {
