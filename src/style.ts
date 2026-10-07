@@ -286,7 +286,7 @@ const TRACK = `
 .rr-mark[data-side="S"] { bottom: 0; left: calc(var(--u) * 5); }
 .rr-mark[data-side="E"] { right: 0; top: calc(var(--u) * 5); }
 .rr-mark[data-side="W"] { left: 0; top: calc(var(--u) * 5); }
-.rr-cell[data-taken] .rr-mark { opacity: .6; filter: grayscale(.6) brightness(.8); }
+.rr-cell[data-taken] .rr-mark { opacity: .75; filter: grayscale(1) brightness(.9); }
 .rr-cell[data-taken="N"] .rr-mark[data-side="N"], .rr-cell[data-taken="E"] .rr-mark[data-side="E"],
 .rr-cell[data-taken="S"] .rr-mark[data-side="S"], .rr-cell[data-taken="W"] .rr-mark[data-side="W"] {
   opacity: 1; filter: none; box-shadow: 0 0 0 var(--u) var(--gold-hi); }
