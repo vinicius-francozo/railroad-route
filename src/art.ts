@@ -34,7 +34,7 @@ export const PAL: Readonly<Record<string, string>> = {
   v: '#57496a', V: '#7d6c94', b: '#0e1a2e', B: '#1c2f4d', q: '#dfe8f2',
   // This page's own: coal, crystal, and the earth the mine is cut into.
   a: '#55525e', A: '#a9a6b4', Q: '#36343c', j: '#3fb6d0', J: '#bff2fb', l: '#1f6f8f',
-  t: '#3b2a1c', T: '#54402d', u: '#21170e', z: '#4a3a2c', Z: '#66523f',
+  z: '#4a3a2c', Z: '#66523f',
 };
 
 /** Mulberry32. Decoration only: nothing in the game reads it. */
@@ -140,25 +140,18 @@ type Reading = { d: number; nx: number; ny: number };
 type Band = (x: number, y: number) => Reading | undefined;
 type Tones = { light: string; dark: string; half: number };
 
-/** The tones a piece of track is laid in: its rails, its sleepers, and its sleepers across a bend. */
-type Finish = { rail: Tones; sleeper: Tones; bent: Tones };
-
 const RAIL: Tones = { light: 'S', dark: 'i', half: 1 };
 const SLEEPER: Tones = { light: 'h', dark: 'w', half: 1 };
 /** A sleeper across a bend is thinner: on the diagonal a band of 1 is three pixels thick. */
 const BENT_SLEEPER: Tones = { light: 'h', dark: 'w', half: 0.75 };
 const BUFFER: Tones = { light: 'R', dark: 'r', half: 1.5 };
 
-const LIT: Finish = { rail: RAIL, sleeper: SLEEPER, bent: BENT_SLEEPER };
 /**
- * The branches of a switch the cart did not take, after a run: the same track
- * in the tones of the ground, so the one it took is the only bright way out.
+ * The rails of the branches of a switch the cart did not take, after a run:
+ * the same rails in the tones of the ground, so the one it took is the only
+ * bright way out.
  */
-const DIM: Finish = {
-  rail: { light: '#5a5048', dark: '#3a332c', half: 1 },
-  sleeper: { light: '#3a2a1e', dark: '#2a1e15', half: 1 },
-  bent: { light: '#3a2a1e', dark: '#2a1e15', half: 0.75 },
-};
+const DIM_RAIL: Tones = { light: '#5a5048', dark: '#3a332c', half: 1 };
 
 /** Paints `bands` in `tones`: their shadows first, then the bands over them. */
 function paintBands(P: Pen, bands: readonly Band[], tones: Tones): void {
@@ -249,10 +242,10 @@ function arcSleepers(arc: Arc): Band[] {
 }
 
 /** Draws runs and arcs as one piece of track: every sleeper first, then every rail. */
-function track(P: Pen, runs: readonly Run[], arcs: readonly Arc[], finish: Finish = LIT): void {
-  paintBands(P, runs.flatMap(runSleepers), finish.sleeper);
-  paintBands(P, arcs.flatMap(arcSleepers), finish.bent);
-  paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], finish.rail);
+function track(P: Pen, runs: readonly Run[], arcs: readonly Arc[]): void {
+  paintBands(P, runs.flatMap(runSleepers), SLEEPER);
+  paintBands(P, arcs.flatMap(arcSleepers), BENT_SLEEPER);
+  paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], RAIL);
 }
 
 function tile(draw: (P: Pen) => void): Sprite {
@@ -395,7 +388,7 @@ function groundTile(): Sprite {
  * a tangle, and the rails alone read as the ways out. With `bed` false it is
  * the rails alone, to lay one lit branch over a dimmed junction.
  */
-function junctionTile(entry: Side, exits: readonly Side[], finish: Finish = LIT, bed = true): Sprite {
+function junctionTile(entry: Side, exits: readonly Side[], rail: Tones = RAIL, bed = true): Sprite {
   return tile((P) => {
     const { runs, arcs } = laid(entry, exits);
     if (bed) {
@@ -406,7 +399,7 @@ function junctionTile(entry: Side, exits: readonly Side[], finish: Finish = LIT,
       P(2, 14, 13, 1, '#2a1f16');
       P(14, 2, 1, 13, '#2a1f16');
     }
-    paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], finish.rail);
+    paintBands(P, [...runs.flatMap(runRails), ...arcs.flatMap(arcRails)], rail);
   });
 }
 
@@ -972,9 +965,9 @@ export function drawTrackArt(): Readonly<Record<string, Sprite>> {
     for (let mask = 1; mask < 8; mask++) {
       const exits = others.filter((_, i) => (mask >> i) & 1);
       art[`junction-${entry}-${exits.join('')}`] = junctionTile(entry, exits);
-      art[`junction-dim-${entry}-${exits.join('')}`] = junctionTile(entry, exits, DIM);
+      art[`junction-dim-${entry}-${exits.join('')}`] = junctionTile(entry, exits, DIM_RAIL);
     }
-    for (const exit of others) art[`branch-${entry}-${exit}`] = junctionTile(entry, [exit], LIT, false);
+    for (const exit of others) art[`branch-${entry}-${exit}`] = junctionTile(entry, [exit], RAIL, false);
   }
   art['cart'] = cartStrip();
   return art;
