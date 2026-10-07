@@ -108,9 +108,10 @@ body::before {
 .rr-icon-crate-curve::before { width: 32px; height: 32px; background-image: var(--rr-art-curve-0, none); }
 .rr-icon-crate-cross::before { width: 32px; height: 32px; background-image: var(--rr-art-cross-0, none); }
 
-/* a switch's badge: a glyph for its kind and its letter, in ink on a parchment
-   plate. Sized in --u, one sprite pixel, so its glyph is drawn at a whole scale
-   wherever it is: a sixteenth of a square on the board, three pixels in the list */
+/* a switch's badge in the list: a glyph for its kind and its letter, in ink on
+   a parchment plate. Sized in --u, one sprite pixel, three screen pixels, so
+   its glyph is drawn at a whole scale. (On the board it is the letter alone:
+   see .rr-grid .rr-badge.) */
 .rr-badge { --u: 3px; display: inline-flex; align-items: center; gap: var(--u); pointer-events: none;
   height: calc(var(--u) * 7); padding: 0 var(--u) 0 var(--u);
   font: 400 calc(var(--u) * 7.4)/1 var(--f-num); color: #1a1410; background: var(--parch);
@@ -274,15 +275,24 @@ const TRACK = `
 .rr-cell[data-kind="switch"], .rr-cell[data-mode="fixed"] { cursor: default; }
 /* an empty square takes a click only with a piece from the crate in hand */
 .rr-grid:not([data-tool="place"]) > [data-kind="empty"] { cursor: default; }
-/* a switch on the board: its badge hangs half over the corner across from the
-   entry, where no branch runs; a mark stands between the rails at the end of
-   every branch. After a run the branch the cart took stays bright, its mark
-   ringed in gold, and the others go dark. */
-.rr-grid .rr-badge { --u: calc(var(--cell) / 16); position: absolute; z-index: 2; }
-.rr-badge[data-corner="ne"] { top: calc(var(--u) * -3); right: calc(var(--u) * -6); }
-.rr-badge[data-corner="nw"] { top: calc(var(--u) * -3); left: calc(var(--u) * -6); }
-.rr-badge[data-corner="se"] { bottom: calc(var(--u) * -3); right: calc(var(--u) * -6); }
-.rr-badge[data-corner="sw"] { bottom: calc(var(--u) * -3); left: calc(var(--u) * -6); }
+/* a switch on the board: a mark stands between the rails at the end of every
+   branch, and its letter sits inside the square, in the corner across from the
+   entry that no rail and no mark reaches — three track pixels by four, too
+   small for the list's badge, so the board shows the letter alone on its
+   plate, a 5 x 7 sprite at half a track pixel (--px, rounded down to a whole
+   screen pixel), clear of the neighbours and of the focus ring outside the
+   square. After a run the branch the cart took stays bright, its mark ringed
+   in gold, and the others go dark. */
+.rr-grid .rr-badge { --px: 1px; position: absolute; z-index: 2; width: calc(var(--px) * 5); height: calc(var(--px) * 7);
+  padding: 0; gap: 0; justify-content: center; font: 400 calc(var(--px) * 8)/1 var(--f-num); box-shadow: none;
+  background: var(--letter, none) 0 0 / 100% 100% no-repeat, var(--parch); image-rendering: pixelated; }
+:root[data-art] .rr-grid .rr-badge { color: transparent; }
+.rr-grid .rr-badge::before { display: none; }
+@supports (width: round(down, 10px, 4px)) { .rr-grid .rr-badge { --px: round(down, var(--cell) / 32, 1px); } }
+.rr-badge[data-corner="ne"] { top: var(--px); right: var(--px); }
+.rr-badge[data-corner="nw"] { top: var(--px); left: var(--px); }
+.rr-badge[data-corner="se"] { bottom: var(--px); right: var(--px); }
+.rr-badge[data-corner="sw"] { bottom: var(--px); left: var(--px); }
 .rr-mark { position: absolute; z-index: 1; width: calc(var(--u) * 6); height: calc(var(--u) * 6); pointer-events: none;
   background: var(--mark, none) 0 0 / 100% 100% no-repeat; image-rendering: pixelated;
   filter: drop-shadow(var(--u) var(--u) 0 rgba(0,0,0,.55)); }

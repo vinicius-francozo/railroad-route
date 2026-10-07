@@ -624,10 +624,12 @@ describe('a switch, on the board and in the list', () => {
     expect(square.attributes.get('aria-label')).toBe('Switch A, points: What does the cart carry?, row 2, column 4');
   });
 
-  it('hangs the badge from the corner across from the entry, where no branch runs', async () => {
+  it('sets the badge in the corner across from the entry, where no branch runs, its letter drawn', async () => {
     const app = mountHarness();
     await settle();
-    expect(byClass(app.cell(3, 1), 'rr-badge').attributes.get('data-corner')).toBe('ne');
+    const badge = byClass(app.cell(3, 1), 'rr-badge');
+    expect(badge.attributes.get('data-corner')).toBe('ne');
+    expect(badge.attributes.get('style')).toBe('--letter: var(--rr-art-letter-A, none)');
   });
 
   it('puts at the end of each branch the mark of the answer that leads there, hidden from a screen reader', async () => {
@@ -699,19 +701,12 @@ describe('a switch, on the board and in the list', () => {
   });
 });
 
-describe('where a switch’s badge hangs', () => {
+describe('where a switch’s badge sits', () => {
   it('goes to a corner across from the entry, the top one when it can', () => {
-    expect(badgeCorner({ x: 3, y: 3, entry: 'W' }, 8, 8)).toBe('ne');
-    expect(badgeCorner({ x: 3, y: 3, entry: 'E' }, 8, 8)).toBe('nw');
-    expect(badgeCorner({ x: 3, y: 3, entry: 'S' }, 8, 8)).toBe('ne');
-    expect(badgeCorner({ x: 3, y: 3, entry: 'N' }, 8, 8)).toBe('se');
-  });
-
-  it('moves to the corner that stays on the board at its edges', () => {
-    expect(badgeCorner({ x: 3, y: 0, entry: 'W' }, 8, 8)).toBe('se');
-    expect(badgeCorner({ x: 7, y: 3, entry: 'W' }, 8, 8)).toBe('nw');
-    expect(badgeCorner({ x: 0, y: 3, entry: 'E' }, 8, 8)).toBe('ne');
-    expect(badgeCorner({ x: 3, y: 7, entry: 'N' }, 8, 8)).toBe('ne');
+    expect(badgeCorner({ entry: 'W' })).toBe('ne');
+    expect(badgeCorner({ entry: 'E' })).toBe('nw');
+    expect(badgeCorner({ entry: 'S' })).toBe('ne');
+    expect(badgeCorner({ entry: 'N' })).toBe('se');
   });
 });
 

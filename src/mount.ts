@@ -156,22 +156,15 @@ function squareGlyph(square: Square): string {
 }
 
 /**
- * The corner of a switch's square its badge hangs from, as `ne`, `nw`, `se` or `sw`.
+ * The corner of a switch's square its letter sits in, as `ne`, `nw`, `se` or `sw`.
  *
  * The corners on the entry's side are where the curves out of the entry run,
- * and the two across from it are clear, so the badge goes on one of those:
+ * and the two across from it are clear, so the letter goes in one of those:
  * the top one, or the bottom one for a switch the cart enters from the north.
- * The badge hangs half over the corner, so on the board's edge it moves to the
- * corner that stays on the board.
+ * It sits inside the square, so the board's edge does not move it.
  */
-export function badgeCorner(sw: Pick<Switch, 'x' | 'y' | 'entry'>, width: number, height: number): string {
-  let vertical = sw.entry === 'N' ? 's' : 'n';
-  let horizontal = sw.entry === 'E' ? 'w' : 'e';
-  if (vertical === 'n' && sw.y === 0) vertical = 's';
-  else if (vertical === 's' && sw.y === height - 1) vertical = 'n';
-  if (horizontal === 'e' && sw.x === width - 1) horizontal = 'w';
-  else if (horizontal === 'w' && sw.x === 0) horizontal = 'e';
-  return vertical + horizontal;
+export function badgeCorner(sw: Pick<Switch, 'entry'>): string {
+  return (sw.entry === 'N' ? 's' : 'n') + (sw.entry === 'E' ? 'w' : 'e');
 }
 
 /** Does `value` look like the answer of a run, enough to animate it? */
@@ -488,8 +481,9 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
   /**
    * A switch's badge: its letter, as the list names it, after a glyph for its
    * kind. The same element on the board and in the list, so one is read with
-   * the other; decoration in both, since the square's label and the list's
-   * title say the same in words.
+   * the other — on the board the stylesheet shows the letter alone, the only
+   * part with room in the square; decoration in both, since the square's label
+   * and the list's title say the same in words.
    */
   const badgeFor = (sw: Switch, letter: string): HTMLSpanElement => {
     const badge = make('span', `rr-badge rr-type-${sw.question.type}`);
@@ -534,7 +528,9 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
         parts.push(spot);
       }
       const badge = badgeFor(sw, letter);
-      badge.setAttribute('data-corner', badgeCorner(sw, game.level.width, game.level.height));
+      badge.setAttribute('data-corner', badgeCorner(sw));
+      // On the board the letter is drawn as a sprite, too small for the font.
+      if (/^[A-Z]$/.test(letter)) badge.setAttribute('style', `--letter: var(--rr-art-letter-${letter}, none)`);
       parts.push(badge);
     }
     cell.replaceChildren(...parts);

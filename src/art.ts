@@ -410,7 +410,7 @@ function junctionTile(entry: Side, exits: readonly Side[], rail: Tones = RAIL, b
 //
 // A switch is its track and nothing standing on it: the branches from the entry
 // to every exit, a mark at the end of each branch that says which answer leads
-// there, and one badge with the switch's letter and a glyph for its kind. The
+// there, and the switch's letter in a corner no rail or mark reaches. The
 // marks are the same pictures the list of questions puts beside each answer,
 // so the board and the list are read with one key.
 //
@@ -531,6 +531,30 @@ const TYPE_GLYPHS: Readonly<Record<string, readonly string[]>> = {
   noul: ['.kkk.', 'k...k', '...k.', '.....', '..k..'],
   score: ['....k', '...kk', '..kkk', '.kkkk', 'kkkkk'],
 };
+
+/**
+ * The capitals a switch's letter is drawn in on the board, 3 × 5, `k` on `.`.
+ * At sixteen pixels to the square there is no room on a switch for the badge
+ * the list wears: the one corner no rail or mark reaches is three of its
+ * pixels wide and four high, so the board shows the letter alone, on a small
+ * parchment plate, drawn at half a track pixel.
+ */
+const LETTER_ROWS: Readonly<Record<string, string>> = {
+  A: '.k.k.kkkkk.kk.k', B: 'kk.k.kkk.k.kkk.', C: '.kkk..k..k...kk', D: 'kk.k.kk.kk.kkk.', E: 'kkkk..kk.k..kkk',
+  F: 'kkkk..kk.k..k..', G: '.kkk..k.kk.k.kk', H: 'k.kk.kkkkk.kk.k', I: 'kkk.k..k..k.kkk', J: '..k..k..kk.k.k.',
+  K: 'k.kk.kkk.k.kk.k', L: 'k..k..k..k..kkk', M: 'k.kkkkkkkk.kk.k', N: 'kk.k.kk.kk.kk.k', O: '.k.k.kk.kk.k.k.',
+  P: 'kk.k.kkk.k..k..', Q: '.k.k.kk.kkk..kk', R: 'kk.k.kkk.k.kk.k', S: '.kkk...k...kkk.', T: 'kkk.k..k..k..k.',
+  U: 'k.kk.kk.kk.kkkk', V: 'k.kk.kk.kk.k.k.', W: 'k.kk.kkkkkkkk.k', X: 'k.kk.k.k.k.kk.k', Y: 'k.kk.k.k..k..k.',
+  Z: 'kkk..k.k.k..kkk',
+};
+
+/** A letter of `LETTER_ROWS` on its plate: 5 × 7, ink on parchment, a darker edge along the bottom. */
+function letterPlate(rows: string): Sprite {
+  const plate = ['ppppp'];
+  for (let y = 0; y < 5; y++) plate.push(`p${rows.slice(y * 3, y * 3 + 3).replaceAll('.', 'p')}p`);
+  plate.push('PPPPP');
+  return fromRows(plate);
+}
 
 // --- The cart -------------------------------------------------------------------
 
@@ -993,13 +1017,15 @@ export function drawTrackArt(): Readonly<Record<string, Sprite>> {
 
 /**
  * The icons the page's labels, buttons and switches wear, as CSS backgrounds:
- * `mark-<name>` for every exit mark and `type-<question type>` for every
- * badge glyph, besides the labels' own.
+ * `mark-<name>` for every exit mark, `type-<question type>` for every badge
+ * glyph and `letter-<A to Z>` for a switch's letter on the board, besides the
+ * labels' own.
  */
 export function drawIcons(): Readonly<Record<string, Sprite>> {
   const icons: Record<string, Sprite> = { key: keyIcon() };
   for (const [name, rows] of Object.entries(ICON_ROWS)) icons[name] = fromRows(rows);
   for (const [name, mark] of Object.entries(exitMarkSprites())) icons[`mark-${name}`] = mark;
   for (const [name, rows] of Object.entries(TYPE_GLYPHS)) icons[`type-${name}`] = fromRows(rows);
+  for (const [letter, rows] of Object.entries(LETTER_ROWS)) icons[`letter-${letter}`] = letterPlate(rows);
   return icons;
 }
