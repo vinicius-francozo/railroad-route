@@ -29,7 +29,7 @@ The same sentence has to satisfy every switch on the path, and each level forbid
   - its own, such as *gold, golden, ouro, dourad* on the gold level;
   - a global list of command words, number words and digits (*option, pick, answer, second, last, true, sim, dois, 2*…).
 
-  A forbidden word blocks every word that starts with it, ignoring case and accents. Invisible characters are removed before checking.
+  A forbidden word blocks every word that starts with it, ignoring case and accents. Invisible characters are removed before checking. An apostrophe between letters keeps a word whole (*generator's*, *don't*, *d'ouro* count as one word), and each piece between apostrophes is still checked, so *d'ouro* is blocked by *ouro*.
 - **The run.** The cart leaves the start, crosses square by square, and ends one of three ways:
   - in the mine (`arrived`);
   - in a wrong tunnel (`wrong_tunnel`);
@@ -94,7 +94,7 @@ flowchart LR
 | `levels/` | the five levels and the star thresholds (`tuning.json`) |
 | `src/` | the page: board, cart, readings and the pixel art, all drawn in code |
 
-The page is built by hand with DOM calls, with no framework. Its visual language comes from [Gridsmith](https://github.com/vinicius-francozo/gridsmith)'s design system: every sprite is drawn pixel by pixel in TypeScript, and the fonts are self-hosted under the SIL Open Font License.
+The page is built by hand with DOM calls, with no framework. It is set in an underground mine: bedded rock and ore seams, timber props and lamps whose light falls behind the boards. On the board, each switch shows only its branches, a mark at every exit (the ore, a yes/no chip, a level meter) and its letter. The drawing rules come from [Gridsmith](https://github.com/vinicius-francozo/gridsmith)'s design system: every sprite is drawn pixel by pixel in TypeScript, and the fonts are self-hosted under the SIL Open Font License.
 
 ## Running it locally
 
