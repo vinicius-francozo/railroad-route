@@ -1,10 +1,16 @@
 /**
- * The page's stylesheet: a mine gallery, a wooden plaque, two framed boards.
+ * The page's stylesheet: a mine — earth all round, a timbered tunnel mouth in
+ * the middle, a wooden plaque and two boards inside it.
  *
  * One string, put into a `<style>` by `mountApp`, so the page is still the one
  * module that touches the document. The tokens at the top are the design
- * system's, copied from Gridsmith's `src/ui/style.ts`; where a written guide
- * and these values disagree, these win.
+ * system's, copied from Gridsmith's `src/ui/style.ts`, with the surfaces moved
+ * from its grey stone to the mine's dark earth; the text colours are its own,
+ * and every pair was measured again on the new surfaces (WCAG 2): `--ink` on
+ * `--board` 13.5:1, on `--well` 14.9:1; `--ink-dim` on `--board` 7.4:1, on
+ * `--well` 8.2:1, on the readings 7.8:1; `--gold-hi` on `--board` 11.4:1;
+ * `--parch` on `--board` 12.0:1; `--danger` on `--board` 5.8:1. Where a
+ * written guide and these values disagree, these win.
  *
  * Every picture this refers to arrives as a `--rr-art-*` custom property that
  * `scene.ts` sets once the pixels are drawn. Each use has a fallback, so a page
@@ -43,14 +49,16 @@ const FONT_FACES = (
 const TOKENS = `
 :root {
   color-scheme: dark;
-  --wall: #1b1d22; --board: #1f2126; --well: #14161a;
+  --wall: #1d140d; --board: #211a14; --well: #140f0b; --panel: #1a1410;
   --wood: #4a2f1e; --wood-hi: #7a4d2b; --wood-lo: #2c1b10;
   --gold: #d9a441; --gold-hi: #f2cf72; --gold-lo: #8a6424;
   --parch: #e8d6a8; --parch-lo: #bfa877;
   --ink: #ece3cf; --ink-dim: #b3a990; --ink-dark: #2a1a0e;
   --moss: #3f7a3a; --moss-hi: #6cb35f; --moss-lo: #1f3d22;
-  --ember: #f08a2c; --ok: #5fbf5a; --warn: #e0a83a; --danger: #d4604a;
-  --line: #4d525c;
+  --ember: #f08a2c; --ok: #5fbf5a; --warn: #e0a83a; --danger: #e57560;
+  --line: #5b4b3d;
+  /* the light of a lamp: three hard rings, no blur, as a pixel-art glow */
+  --lamp-light: radial-gradient(circle, rgba(255,176,82,.26) 0 22%, rgba(255,156,64,.15) 22% 42%, rgba(240,138,44,.07) 42% 64%, transparent 64%);
 
   --f-display: "Jersey 10", "VT323", ui-monospace, monospace;
   --f-brand: "Pixelify Sans", "Jersey 10", ui-monospace, monospace;
@@ -62,6 +70,8 @@ const TOKENS = `
   --floor-h: clamp(26px, 5.4vh, 64px);
   --floor-gap: clamp(6px, 1.3vh, 14px);
   --hall-top: clamp(12px, 2.6vh, 30px);
+  /* how far the tunnel's timber posts stand out from the boards, when there is room for them */
+  --post-w: 0px; --post-gap: 0px;
 }`;
 
 const BASE = `
@@ -72,13 +82,13 @@ body {
   margin: 0; color: var(--ink); font: 400 16px/1.45 var(--f-body);
   display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
   padding: 0 16px calc(var(--floor-h) + var(--floor-gap));
-  background-color: var(--wall); background-image: var(--rr-art-stone, none);
-  background-size: 192px 96px; background-repeat: repeat; image-rendering: pixelated;
+  background-color: var(--wall); background-image: var(--rr-art-earth-bits, none), var(--rr-art-earth, none);
+  background-size: 672px 456px, 480px 336px; background-repeat: repeat; image-rendering: pixelated;
 }
-/* the gallery darkens toward its corners */
+/* underground, the dark closes in from every edge */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(ellipse 75% 70% at 50% 35%, transparent 55%, rgba(0,0,0,.55) 100%);
+  background: radial-gradient(ellipse 72% 68% at 50% 38%, transparent 38%, rgba(0,0,0,.5) 72%, rgba(0,0,0,.78) 100%);
 }
 #app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
@@ -97,9 +107,21 @@ body::before {
 .rr-icon-crate-straight::before { width: 32px; height: 32px; background-image: var(--rr-art-straight-0, none); }
 .rr-icon-crate-curve::before { width: 32px; height: 32px; background-image: var(--rr-art-curve-0, none); }
 .rr-icon-crate-cross::before { width: 32px; height: 32px; background-image: var(--rr-art-cross-0, none); }
-.rr-icon-device-choice::before { width: 32px; height: 32px; background-image: var(--rr-art-device-choice, none); }
-.rr-icon-device-noul::before { width: 32px; height: 32px; background-image: var(--rr-art-device-noul, none); }
-.rr-icon-device-score::before { width: 32px; height: 32px; background-image: var(--rr-art-device-score, none); }
+
+/* a switch's badge in the list: a glyph for its kind and its letter, in ink on
+   a parchment plate. Sized in --u, one sprite pixel, three screen pixels, so
+   its glyph is drawn at a whole scale. (On the board it is the letter alone:
+   see .rr-grid .rr-badge.) */
+.rr-badge { --u: 3px; display: inline-flex; align-items: center; gap: var(--u); pointer-events: none;
+  height: calc(var(--u) * 7); padding: 0 var(--u) 0 var(--u);
+  font: 400 calc(var(--u) * 7.4)/1 var(--f-num); color: #1a1410; background: var(--parch);
+  box-shadow: inset 0 calc(var(--u) * -1) 0 var(--parch-lo), 0 0 0 var(--u) #1a1410, var(--u) var(--u) 0 var(--u) rgba(0,0,0,.6); }
+.rr-badge::before { content: ""; flex: none; width: calc(var(--u) * 5); height: calc(var(--u) * 5);
+  background: 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
+:root:not([data-art]) .rr-badge::before { display: none; }
+.rr-type-choice::before { background-image: var(--rr-art-type-choice, none); }
+.rr-type-noul::before { background-image: var(--rr-art-type-noul, none); }
+.rr-type-score::before { background-image: var(--rr-art-type-score, none); }
 `;
 
 const LAYOUT = `
@@ -109,8 +131,14 @@ const LAYOUT = `
 /* the hall: a plaque hung from the beam, between two lanterns */
 .rr-hall { flex: none; position: relative; width: 100%;
   display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: start;
-  gap: clamp(12px, 2vw, 24px); padding-block: var(--hall-top) clamp(8px, 1.6vh, 16px); }
+  gap: clamp(12px, 2vw, 24px); padding-block: var(--hall-top) clamp(8px, 1.6vh, 16px);
+  /* the lamps' light spreads wider than a narrow screen: it must not make the page scroll sideways */
+  overflow-x: clip; }
 .rr-hall > * { position: relative; z-index: 1; }
+/* but not the lamps: a lamp's light falls on the rock and the timbers behind
+   the plaque and the boards, never on them, so its wrap makes no stacking
+   context of its own and the light sinks to the back of the tunnel's */
+.rr-hall > .rr-lantern-wrap { z-index: auto; }
 .rr-plaque { grid-column: 3; position: relative; text-align: center;
   padding: clamp(6px, 1.2vh, 12px) clamp(16px, 2.4vw, 32px) clamp(8px, 1.6vh, 16px);
   background: linear-gradient(#5a3820, #432916); border: 4px solid var(--wood-lo);
@@ -166,11 +194,14 @@ const FORM = `
 .rr-switches { margin-bottom: clamp(8px, 1.5vh, 16px); }
 .rr-switches h3 { margin: 0 0 var(--s2); font: 400 22px/1 var(--f-display); color: var(--gold-hi); letter-spacing: .03em; }
 .rr-switches > ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s2); }
-.rr-switch { display: grid; grid-template-columns: 32px 1fr; column-gap: var(--s2); align-items: start;
-  padding: var(--s2); background: var(--well); border: 2px solid var(--line); box-shadow: inset 0 3px 0 #0009; }
-.rr-switch::before { grid-row: 1 / span 2; }
+.rr-switch { display: grid; grid-template-columns: auto 1fr; column-gap: var(--s3); align-items: start;
+  padding: var(--s2) var(--s2) var(--s2) var(--s3); background: var(--well); border: 2px solid var(--line); box-shadow: inset 0 3px 0 #0009; }
+.rr-switch > .rr-badge { grid-row: 1 / span 2; margin-top: 3px; }
 .rr-switch-title { margin: 0; font-weight: 700; font-size: 15.5px; line-height: 1.3; }
-.rr-exits { margin: var(--s1) 0 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 14.5px; line-height: 1.3; }
+.rr-exits { margin: var(--s1) 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 14.5px; line-height: 1.3; }
+/* the mark that stands at the end of the answer's branch on the board */
+.rr-exit-mark { display: inline-block; width: 18px; height: 18px; margin-right: 6px; vertical-align: -3px;
+  background: var(--mark, none) 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
 .rr-exits strong { color: var(--gold-hi); }
 .rr-exit-side { color: var(--ink-dim); white-space: nowrap; }
 .rr-taboo { margin-bottom: clamp(8px, 1.5vh, 16px); }
@@ -221,8 +252,8 @@ const TRACK = `
 .rr-viewport { position: relative; flex: 1; min-height: 0; overflow: auto; container-type: size;
   display: grid; align-items: safe center; justify-items: safe center;
   padding: clamp(8px, 1.6vh, 24px); background: var(--well);
-  border: 2px solid #0008; box-shadow: inset 0 0 0 2px #2a2d33; }
-.rr-grid { --cell: 48px; position: relative; display: grid;
+  border: 2px solid #0008; box-shadow: inset 0 0 0 2px #2e241b; }
+.rr-grid { --cell: 48px; --u: calc(var(--cell) / 16); position: relative; display: grid;
   grid-template-columns: repeat(var(--w), var(--cell)); grid-auto-rows: var(--cell);
   box-shadow: 0 0 0 2px #000, 4px 5px 0 #0008; transition: opacity .2s; }
 @supports (width: round(down, 10px, 4px)) {
@@ -230,10 +261,11 @@ const TRACK = `
 }
 .rr-cell { position: relative; width: var(--cell); height: var(--cell); padding: 0; margin: 0; border: 0; cursor: pointer;
   background: #26221e var(--rr-art-ground, none) 0 0 / 100% 100%; image-rendering: pixelated; color: var(--ink); }
-.rr-cell:focus-visible { z-index: 2; }
+/* above a neighbour's switch letter (z-index 2), so no letter breaks the ring */
+.rr-cell:focus-visible { z-index: 3; }
 .rr-piece { position: absolute; inset: 0; display: grid; place-items: center;
   font: 400 calc(var(--cell) * .7)/1 var(--f-num); color: var(--ink-dim);
-  background-image: var(--dev, none), var(--art, none); background-size: 100% 100%; background-repeat: no-repeat;
+  background-image: var(--art, none); background-size: 100% 100%; background-repeat: no-repeat;
   image-rendering: pixelated; pointer-events: none; }
 :root[data-art] .rr-piece { color: transparent; }
 .rr-cell[data-mode="rotatable"]::after, .rr-cell[data-mode="placed"]::after {
@@ -244,9 +276,53 @@ const TRACK = `
 .rr-cell[data-kind="switch"], .rr-cell[data-mode="fixed"] { cursor: default; }
 /* an empty square takes a click only with a piece from the crate in hand */
 .rr-grid:not([data-tool="place"]) > [data-kind="empty"] { cursor: default; }
-.rr-badge { position: absolute; left: 1px; top: 1px; min-width: 14px; padding: 0 2px; pointer-events: none;
-  font: 400 calc(var(--cell) * .32)/1 var(--f-num); color: var(--ink-dark); background: var(--parch);
-  box-shadow: 1px 1px 0 #000; text-align: center; }
+/* a switch on the board: a mark stands between the rails at the end of every
+   branch, and its letter sits inside the square, in the corner across from the
+   entry. Without the art there are no rails or marks, so the letter is the
+   list's plate in type, a track pixel to its --u, flush in the corner and
+   without its outer ring and shadow, clear of the square's glyph. */
+.rr-grid .rr-badge { --u: calc(var(--cell) / 16); position: absolute; z-index: 2;
+  box-shadow: inset 0 calc(var(--u) * -1) 0 var(--parch-lo); }
+.rr-grid .rr-badge::before { display: none; }
+.rr-badge[data-corner="ne"] { top: 0; right: 0; }
+.rr-badge[data-corner="nw"] { top: 0; left: 0; }
+.rr-badge[data-corner="se"] { bottom: 0; right: 0; }
+.rr-badge[data-corner="sw"] { bottom: 0; left: 0; }
+/* With the art, the corner across from the entry that no rail and no mark
+   reaches is three track pixels by four, too small for that plate, so the
+   board shows the letter alone: a 3 x 5 sprite drawn at --s screen pixels a
+   pixel, the largest whole scale whose plate (the letter and one screen pixel
+   of parchment round it) fits the corner — 1 at 32 px squares, 2 at 48 and
+   64 — set in the middle of the corner, any odd pixel left on the outer side
+   (--dx, --dy). Clear of the neighbours, and under the focus ring. Without
+   round() the square is always 48 px, so the fallback is that one's numbers.
+   After a run the branch the cart took stays bright, its mark ringed in gold,
+   and the others go dark. */
+:root[data-art] .rr-grid .rr-badge { --s: 2px; --dx: 1px; --dy: 0px;
+  width: calc(var(--s) * 3 + 2px); height: calc(var(--s) * 5 + 2px); padding: 0; gap: 0; color: transparent;
+  box-shadow: inset 0 -1px 0 var(--parch-lo);
+  background: var(--letter, none) 1px 1px / calc(var(--s) * 3) calc(var(--s) * 5) no-repeat, var(--parch); image-rendering: pixelated; }
+@supports (width: round(down, 10px, 4px)) {
+  :root[data-art] .rr-grid .rr-badge {
+    --s: round(down, min(var(--u) - 2px / 3, (var(--u) * 4 - 2px) / 5), 1px);
+    --dx: round(up, (var(--u) * 3 - var(--s) * 3 - 2px) / 2, 1px);
+    --dy: round(up, (var(--u) * 4 - var(--s) * 5 - 2px) / 2, 1px); }
+}
+:root[data-art] .rr-badge[data-corner="ne"] { top: var(--dy); right: var(--dx); }
+:root[data-art] .rr-badge[data-corner="nw"] { top: var(--dy); left: var(--dx); }
+:root[data-art] .rr-badge[data-corner="se"] { bottom: var(--dy); right: var(--dx); }
+:root[data-art] .rr-badge[data-corner="sw"] { bottom: var(--dy); left: var(--dx); }
+.rr-mark { position: absolute; z-index: 1; width: calc(var(--u) * 6); height: calc(var(--u) * 6); pointer-events: none;
+  background: var(--mark, none) 0 0 / 100% 100% no-repeat; image-rendering: pixelated;
+  filter: drop-shadow(var(--u) var(--u) 0 rgba(0,0,0,.55)); }
+.rr-mark[data-side="N"] { top: 0; left: calc(var(--u) * 5); }
+.rr-mark[data-side="S"] { bottom: 0; left: calc(var(--u) * 5); }
+.rr-mark[data-side="E"] { right: 0; top: calc(var(--u) * 5); }
+.rr-mark[data-side="W"] { left: 0; top: calc(var(--u) * 5); }
+.rr-cell[data-taken] .rr-mark { opacity: .75; filter: grayscale(1) brightness(.9); }
+.rr-cell[data-taken="N"] .rr-mark[data-side="N"], .rr-cell[data-taken="E"] .rr-mark[data-side="E"],
+.rr-cell[data-taken="S"] .rr-mark[data-side="S"], .rr-cell[data-taken="W"] .rr-mark[data-side="W"] {
+  opacity: 1; filter: none; box-shadow: 0 0 0 var(--u) var(--gold-hi); }
 .rr-cell[data-trail] .rr-piece { box-shadow: inset 0 0 0 999px rgba(242,207,114,.14); }
 .rr-track-board[aria-busy="true"] .rr-cell { cursor: progress; }
 .rr-empty { margin: 0; display: grid; place-items: center; padding: var(--s4); min-height: 160px; align-self: stretch; justify-self: stretch;
@@ -271,7 +347,7 @@ const TRACK = `
 
 /* what Jev read, under the board */
 .rr-readings { flex: none; width: clamp(240px, 24vw, 320px); padding: var(--s3) var(--s4);
-  overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--wood-hi) transparent; background: #1a1c20; border: 2px solid #3a3d44; border-left: 6px solid var(--gold); }
+  overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--wood-hi) transparent; background: var(--panel); border: 2px solid #45372b; border-left: 6px solid var(--gold); }
 .rr-readings:empty { display: none; }
 .rr-readings h2 { margin: 0 0 var(--s1); font: 400 22px/1.1 var(--f-display); color: var(--gold-hi); }
 .rr-stars { margin: 0 0 var(--s2); font: 400 30px/1 var(--f-num); color: var(--gold-hi); letter-spacing: .1em; text-shadow: 2px 2px 0 #000; }
@@ -294,51 +370,83 @@ const TRACK = `
 `;
 
 const SCENE = `
-.rr-rivet { position: absolute; width: 8px; height: 8px; background: var(--gold); pointer-events: none;
-  box-shadow: inset -2px -2px 0 var(--gold-lo), inset 2px 2px 0 var(--gold-hi), 0 0 0 2px #000; }
-.rr-rivet.tl { top: -6px; left: -6px; } .rr-rivet.tr { top: -6px; right: -6px; }
-.rr-rivet.bl { bottom: -6px; left: -6px; } .rr-rivet.br { bottom: -6px; right: -6px; }
+/* the boards are panels of rough timber, bolted at the corners */
+.rr-bolt { position: absolute; width: 8px; height: 8px; background: #6d717a; pointer-events: none;
+  box-shadow: inset -2px -2px 0 #43464d, inset 2px 2px 0 #9aa0a8, 0 0 0 2px #000; }
+.rr-bolt.tl { top: -6px; left: -6px; } .rr-bolt.tr { top: -6px; right: -6px; }
+.rr-bolt.bl { bottom: -6px; left: -6px; } .rr-bolt.br { bottom: -6px; right: -6px; }
 .rr-wall-shadow { filter: drop-shadow(3px 5px 0 rgba(0,0,0,.5)); }
 .rr-soft-shadow { filter: drop-shadow(2px 3px 0 rgba(0,0,0,.38)); }
 
-.rr-beam { flex: none; position: relative; z-index: 2; height: clamp(22px, 3.6vh, 36px); margin-inline: -48px;
+/* the tunnel: the mouth of a gallery behind the boards, dark rock that gets
+   darker in hard steps the deeper it goes, its edge caught by the lamps */
+.rr-tunnel { position: absolute; z-index: -1; left: 0; right: 0; top: 0; bottom: calc(-1 * var(--floor-gap));
+  pointer-events: none; background-color: #0b0705;
+  background-image:
+    radial-gradient(ellipse 62% 58% at 50% 56%, rgba(0,0,0,.6) 0 40%, rgba(0,0,0,.4) 40% 62%, rgba(0,0,0,.2) 62% 84%, transparent 84%),
+    linear-gradient(rgba(10,6,4,.74), rgba(10,6,4,.74)), var(--rr-art-earth-bits, none), var(--rr-art-earth, none);
+  background-size: 100% 100%, 100% 100%, 672px 456px, 480px 336px; background-repeat: no-repeat, no-repeat, repeat, repeat;
+  box-shadow: inset 0 0 0 10px rgba(140,96,60,.13), inset 0 0 0 22px rgba(140,96,60,.08), inset 0 0 0 36px rgba(140,96,60,.05),
+    0 0 0 3px #0b0705; }
+/* the timber set: a post each side, standing in the floor, a knee brace under the cap */
+.rr-post { position: absolute; top: 0; bottom: calc(-1 * var(--floor-h) * .4); width: var(--post-w); display: none;
+  background: var(--rr-art-post, var(--wood)) 0 0 / 100% 96px repeat-y; image-rendering: pixelated; box-shadow: 4px 0 0 #0008; }
+.rr-post.l { right: calc(100% + var(--post-gap)); }
+.rr-post.r { left: calc(100% + var(--post-gap)); }
+.rr-tunnel .rr-brace { position: absolute; top: clamp(20px, 3.4vh, 34px); width: 36px; height: 36px; display: none; }
+.rr-brace.l { left: 0; } .rr-brace.r { right: 0; }
+/* a lamp on an iron arm off each post, out over the earth */
+.rr-post-lamp { position: absolute; top: clamp(48px, 9vh, 96px); display: none; flex-direction: column; align-items: center; }
+.rr-post-lamp.l { right: calc(100% + var(--post-gap) + var(--post-w)); align-items: flex-start; }
+.rr-post-lamp.r { left: calc(100% + var(--post-gap) + var(--post-w)); align-items: flex-end; }
+.rr-post-lamp .rr-chain { margin-inline: 6px; }
+.rr-post-lamp.l .rr-chain, .rr-post-lamp.l .rr-lamp { margin-left: 0; }
+.rr-post-lamp.r .rr-chain, .rr-post-lamp.r .rr-lamp { margin-right: 0; }
+.rr-post-lamp::before, .rr-lantern-wrap::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none; width: 300px; height: 300px;
+  background: var(--lamp-light); animation: rr-flicker 2.4s steps(6) infinite; }
+.rr-post-lamp::before { top: 100%; transform: translate(-50%, -62%); }
+.rr-post-lamp.l::before { left: 9px; } .rr-post-lamp.r::before { left: calc(100% - 9px); }
+
+.rr-beam { flex: none; position: relative; z-index: 2; height: clamp(22px, 3.6vh, 36px);
+  margin-inline: calc(-1 * (var(--post-w) + var(--post-gap) + 6px));
   background: var(--rr-art-beam, var(--wood)) repeat-x; background-size: auto 100%; box-shadow: 0 6px 0 #0007;
   pointer-events: none; }
-.rr-beam .rr-bracket { position: absolute; top: 0; }
 
-/* two lanterns hang from the beam on chains, either side of the plaque */
+/* two lamps hang from the cap on chains, either side of the plaque */
 .rr-lantern-wrap { position: relative; display: flex; flex-direction: column; align-items: center; pointer-events: none;
   margin-top: calc(-1 * var(--hall-top)); }
 .rr-lantern-wrap.l { grid-column: 2; } .rr-lantern-wrap.r { grid-column: 4; }
 .rr-lantern-wrap .rr-chain { height: clamp(18px, 4vh, 40px); width: auto; }
 .rr-lantern-wrap .rr-lamp { height: clamp(42px, 7.4vh, 72px); width: auto; }
-.rr-lantern-wrap::before {
-  content: ""; position: absolute; left: 50%; top: 68%; z-index: -1; pointer-events: none;
-  width: 220px; height: 220px; transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(240,138,44,.24) 0, rgba(240,138,44,.09) 38%, transparent 70%);
-  animation: rr-flicker 2.4s steps(6) infinite; }
+.rr-lantern-wrap::before { left: 50%; top: 68%; transform: translate(-50%, -50%); }
 @keyframes rr-flicker { 0%, 100% { opacity: 1; } 30% { opacity: .82; } 55% { opacity: .95; } 80% { opacity: .78; } }
 .rr-plaque .rr-plaque-chain { position: absolute; top: -42px; pointer-events: none; }
 
 .rr-hall .rr-prop { position: absolute; z-index: 0; pointer-events: none; width: auto; }
 .rr-hall .rr-vein { height: clamp(24px, 4.4vh, 48px); }
 .rr-hall .rr-crack { height: clamp(28px, 4.4vh, 44px); opacity: .9; }
-.rr-hall .rr-moss { height: clamp(10px, 1.8vh, 18px); opacity: .9; }
 
+/* the earth outside the tunnel, on a screen wide enough to have any */
 .rr-side { position: absolute; top: clamp(48px, 9vh, 96px); bottom: calc(-1 * (var(--floor-gap) + var(--floor-h) * .58));
-  width: 150px; display: none; flex-direction: column; align-items: center; gap: clamp(24px, 5vh, 56px); pointer-events: none; }
-.rr-side.l { right: calc(100% + 28px); }
-.rr-side.r { left: calc(100% + 28px); }
+  width: min(240px, calc((100vw - 1280px) / 2 - var(--post-w) - var(--post-gap) - 18px));
+  display: none; flex-direction: column; align-items: center;
+  gap: clamp(20px, 4vh, 48px); padding-top: clamp(96px, 16vh, 150px); pointer-events: none; }
+.rr-side.l { right: calc(100% + var(--post-gap) + var(--post-w) + 12px); }
+.rr-side.r { left: calc(100% + var(--post-gap) + var(--post-w) + 12px); }
 .rr-side .rr-grow { flex: 1; }
-.rr-floor-row { display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
-.rr-side.l .rr-floor-row { transform: translateX(-40px); }
-.rr-side.r .rr-floor-row { transform: translateX(40px); }
+.rr-floor-row { display: flex; align-items: flex-end; justify-content: center; gap: 10px; }
+/* drawn at 2x to fit the narrowest side; 3x once there is room (2 x 1.5, still a whole scale) */
+.rr-floor-row .rr-standing:has(.rr-sack) { display: none; }
 .rr-standing { position: relative; display: inline-block; }
 .rr-standing::after { content: ""; position: absolute; z-index: -1; left: 4%; right: -16%; bottom: -6px; height: 13px;
   background: rgba(0,0,0,.6); clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%); }
+.rr-standing:has(.rr-floor-lamp)::before { content: ""; position: absolute; z-index: -1; left: 50%; top: 40%;
+  width: 240px; height: 240px; transform: translate(-50%, -50%); pointer-events: none;
+  background: var(--lamp-light); animation: rr-flicker 2.6s steps(6) infinite; }
 
 .rr-floor { position: fixed; left: 0; right: 0; bottom: 0; height: var(--floor-h); z-index: 0; pointer-events: none;
-  background: var(--rr-art-floor, #101114) repeat-x; background-size: auto 100%; }
+  background: var(--rr-art-floor, #120c07) repeat-x; background-size: auto 100%; }
 .rr-critters { position: fixed; left: 0; right: 0; bottom: 0; height: var(--floor-h); z-index: 2; pointer-events: none; }
 .rr-critters .rr-rat { position: absolute; left: 0; bottom: 10%; height: calc(var(--floor-h) * .5); width: auto;
   transform: translateX(-90px); animation: rr-scurry 24s linear infinite; animation-delay: 3s;
@@ -347,7 +455,16 @@ const SCENE = `
 `;
 
 const RESPONSIVE = `
-@media (min-width: 1600px) { .rr-side { display: flex; } }
+/* the timber posts stand in the margin beside the boards, once there is one */
+@media (min-width: 1364px) {
+  :root { --post-w: 24px; --post-gap: 2px; }
+  .rr-post, .rr-tunnel .rr-brace { display: block; }
+}
+@media (min-width: 1600px) { .rr-side { display: flex; } .rr-post-lamp { display: flex; } }
+@media (min-width: 1760px) {
+  .rr-floor-row { zoom: 1.5; }
+  .rr-floor-row .rr-standing:has(.rr-sack) { display: inline-block; }
+}
 @media (max-width: 760px) { .rr-hall .rr-prop { display: none; } }
 /* tall enough, or too narrow, for the readings to sit beside the board: they go
    under it, at a fixed share of the height so a run never resizes the track */
@@ -370,6 +487,7 @@ const RESPONSIVE = `
   body { display: block; height: auto; overflow: visible; padding-bottom: 24px; }
   .rr-floor, .rr-critters { display: none; }
   .rr-side { bottom: 0; }
+  .rr-tunnel { bottom: 0; }
   #app, .rr-app, .rr-layout, .rr-board-body, .rr-track-body, .rr-viewport { flex: none; }
   .rr-board-body { overflow: visible; }
   .rr-plan-foot .rr-failure { max-height: none; }
@@ -403,7 +521,8 @@ const RESPONSIVE = `
   .rr-cart[data-end="arrived"] { opacity: .4; }
   .rr-cart[data-end="derailed"] { rotate: 35deg; }
   .rr-cart[data-end="wrong_tunnel"] { opacity: .15; }
-  .rr-track-board[aria-busy="true"] .rr-status::before, .rr-lantern-wrap::before { animation: none; }
+  .rr-track-board[aria-busy="true"] .rr-status::before, .rr-lantern-wrap::before, .rr-post-lamp::before,
+  .rr-standing:has(.rr-floor-lamp)::before { animation: none; }
   .rr-critters .rr-rat { animation: none; transform: none; left: 62%; }
 }
 `;
