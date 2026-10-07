@@ -64,15 +64,19 @@ def words(sentence: str) -> list[str]:
 def check_sentence(level: Level, sentence: str) -> None:
     """Refuse `sentence` if it breaks one of `level`'s rules.
 
-    The checks run cheapest first, and the first one broken is the one reported.
+    The checks run in a fixed order, and the first one broken is the one reported: empty, too
+    long, too many words, Taboo. A sentence is empty when it has no word at all, so blanks,
+    punctuation or emoji alone are `empty_sentence`, and that is checked before the length: 300
+    `!` are `empty_sentence`, not `too_long`. The length is counted on the sentence as sent,
+    formatting characters included.
 
     :raises RuleViolation: `empty_sentence`, `too_long`, `too_many_words` or `taboo`.
     """
-    if not sentence.strip():
-        raise RuleViolation("empty_sentence", "the sentence is empty")
+    found = words(sentence)
+    if not found:
+        raise RuleViolation("empty_sentence", "the sentence has no words")
     if len(sentence) > MAX_CHARACTERS:
         raise RuleViolation("too_long", f"the sentence is longer than {MAX_CHARACTERS} characters")
-    found = words(sentence)
     if len(found) > level.max_words:
         raise RuleViolation(
             "too_many_words",

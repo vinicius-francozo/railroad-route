@@ -37,7 +37,19 @@ def test_accepts(level: Level, sentence: str) -> None:
     check_sentence(level, sentence)
 
 
-@pytest.mark.parametrize("sentence", ["", "   ", "\t\n "])
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "",
+        "   ",
+        "\t\n ",
+        "!!!",  # no word at all is empty, whatever else is there
+        "... ?! --",
+        "\U0001f600 \U0001f682",  # emoji only
+        "\u200b\u00ad",  # formatting characters only
+        pytest.param("!" * 300, id="300 bangs"),  # empty is checked before the length
+    ],
+)
 def test_refuses_an_empty_sentence(level: Level, sentence: str) -> None:
     assert violation(level, sentence).kind == "empty_sentence"
 
