@@ -239,6 +239,9 @@ describe('counting words the way the backend does', () => {
     expect(countWords("it ' s")).toBe(2);
     expect(words("it''s")).toEqual(['it', 's']);
     expect(words("rock-'n'-roll")).toEqual(['rock', 'n', 'roll']);
+    // Only the three apostrophes join: not the left single quotation mark, not a backtick.
+    expect(words('it\u2018s')).toEqual(['it', 's']);
+    expect(words('it`s')).toEqual(['it', 's']);
     expect(countWords("'")).toBe(0);
     expect(countWords('ʼ')).toBe(0);
   });

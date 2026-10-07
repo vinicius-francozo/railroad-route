@@ -113,6 +113,9 @@ def test_a_word_is_a_run_of_letters_and_digits(sentence: str, expected: list[str
         ("it ' s", ["it", "s"]),
         ("it''s", ["it", "s"]),
         ("rock-'n'-roll", ["rock", "n", "roll"]),
+        # Only the three apostrophes join: not the left single quotation mark, not a backtick.
+        ("it\u2018s", ["it", "s"]),
+        ("it`s", ["it", "s"]),
         ("'", []),
         ("\u02bc", []),
         # An invisible character next to the apostrophe is gone before the split.
