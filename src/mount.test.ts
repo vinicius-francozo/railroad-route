@@ -537,6 +537,18 @@ describe('editing the track', () => {
     expect(app.art(2, 1)).toContain('straight-1');
   });
 
+  it('does not mark an empty square as fixed, before a piece is laid on it or after it is taken back', async () => {
+    const app = mountHarness();
+    await settle();
+    expect(app.cell(2, 1).attributes.has('data-mode')).toBe(false);
+    app.tool('Straight').click();
+    app.cell(2, 1).click();
+    expect(app.cell(2, 1).attributes.get('data-mode')).toBe('placed');
+    app.cell(2, 1).press('Delete');
+    expect(app.cell(2, 1).attributes.has('data-mode')).toBe(false);
+    expect(app.cell(0, 0).attributes.get('data-mode')).toBe('fixed');
+  });
+
   it('will not lay a piece on a rock or over another piece', async () => {
     const app = mountHarness();
     await settle();

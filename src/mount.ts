@@ -445,7 +445,9 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     const letter = square.kind === 'switch' ? letterOf(square.switch.id) : undefined;
     cell.setAttribute('aria-label', describeSquare(square, x, y, letter));
     cell.setAttribute('data-kind', square.kind === 'piece' ? square.piece : square.kind);
-    cell.setAttribute('data-mode', square.kind === 'piece' ? square.mode : 'fixed');
+    // An empty square is not fixed: a piece from the crate can go there.
+    if (square.kind === 'empty') cell.removeAttribute('data-mode');
+    else cell.setAttribute('data-mode', square.kind === 'piece' ? square.mode : 'fixed');
     const piece = make('span', 'rr-piece');
     piece.setAttribute('aria-hidden', 'true');
     piece.setAttribute('style', squareArt(square));

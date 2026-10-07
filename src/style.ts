@@ -238,6 +238,8 @@ const TRACK = `
 .rr-grid[data-tool="place"] .rr-cell[data-kind="empty"]:hover,
 .rr-grid[data-tool="takeback"] .rr-cell[data-mode="placed"]:hover { box-shadow: inset 0 0 0 3px var(--gold-hi); }
 .rr-cell[data-kind="switch"], .rr-cell[data-mode="fixed"] { cursor: default; }
+/* an empty square takes a click only with a piece from the crate in hand */
+.rr-grid:not([data-tool="place"]) > [data-kind="empty"] { cursor: default; }
 .rr-badge { position: absolute; left: 1px; top: 1px; min-width: 14px; padding: 0 2px; pointer-events: none;
   font: 400 calc(var(--cell) * .32)/1 var(--f-num); color: var(--ink-dark); background: var(--parch);
   box-shadow: 1px 1px 0 #000; text-align: center; }
