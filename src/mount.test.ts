@@ -583,6 +583,17 @@ describe('editing the track', () => {
     app.cell(1, 0).press('ArrowUp');
     expect(app.doc.focused).toBe(app.cell(1, 0));
   });
+
+  it('moves the one tab stop to a square that is clicked', async () => {
+    const app = mountHarness();
+    await settle();
+    const stops = (): FakeElement[] => descendants(app.root).filter((node) => node.className === 'rr-cell' && node.tabIndex === 0);
+
+    app.cell(2, 1).click();
+    expect(stops()).toEqual([app.cell(2, 1)]);
+    app.cell(2, 1).press('ArrowRight');
+    expect(stops()).toEqual([app.cell(3, 1)]);
+  });
 });
 
 describe('the note', () => {

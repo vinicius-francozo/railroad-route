@@ -467,14 +467,19 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     for (const cell of cells.values()) cell.removeAttribute('data-trail');
   };
 
-  const focusCell = (x: number, y: number): void => {
+  /** Makes square (x, y) the board's one tab stop, and answers it. */
+  const rove = (x: number, y: number): HTMLButtonElement | undefined => {
     const before = cells.get(`${String(focusAt.x)},${String(focusAt.y)}`);
     const after = cells.get(`${String(x)},${String(y)}`);
-    if (after === undefined) return;
+    if (after === undefined) return undefined;
     if (before !== undefined) before.tabIndex = -1;
     after.tabIndex = 0;
     focusAt = { x, y };
-    after.focus();
+    return after;
+  };
+
+  const focusCell = (x: number, y: number): void => {
+    rove(x, y)?.focus();
   };
 
   /** Applies an edit the player made on the board, or leaves the board as it was. */
@@ -517,7 +522,7 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
         cell.setAttribute('data-x', String(x));
         cell.setAttribute('data-y', String(y));
         cell.addEventListener('click', () => {
-          focusAt = { x, y };
+          rove(x, y);
           useSquare(x, y);
         });
         cell.addEventListener('keydown', (event: KeyboardEvent) => {
