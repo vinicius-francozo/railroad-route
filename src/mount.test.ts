@@ -1005,6 +1005,28 @@ describe('the visitor’s own key stays in its field', () => {
     expect(app.text()).not.toContain('ts-visitor-secret-key');
   });
 
+  it('never shows it in a failure, on any path a run with the key can end', async () => {
+    for (const answer of [
+      'network',
+      { status: 401, body: { error: 'key_rejected', detail: 'the key was refused' } },
+      { status: 422, body: { error: 'taboo', detail: 'forbidden on this level: gold' } },
+      { status: 429, body: { error: 'quota_exhausted', detail: 'no free runs left today' } },
+      { status: 502, body: { error: 'jev_unavailable', detail: 'Jev did not answer' } },
+      { status: 500, body: 'Internal Server Error' },
+      { status: 200, body: { outcome: 'arrived' } },
+    ] as Answer[]) {
+      const app = await ready({ runs: [{ status: 429, body: { error: 'quota_exhausted', detail: '' } }, answer] });
+      app.send.click();
+      await settle();
+      app.key.value = 'ts-visitor-secret-key';
+      app.send.click();
+      await settle();
+      expect(app.sent[1]?.headers['x-typesafe-key']).toBe('ts-visitor-secret-key');
+      expect(app.failure.hidden).toBe(false);
+      expect(app.text()).not.toContain('secret');
+    }
+  });
+
   it('writes nothing to the console, on any path', async () => {
     const logged = await withTrappedConsole(async () => {
       for (const runs of [

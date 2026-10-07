@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { nullStore, readStars, recordStars, STARS_ITEM } from './progress';
+import { browserStore, nullStore, readStars, recordStars, STARS_ITEM } from './progress';
 import type { ProgressStore } from './progress';
 
 function memoryStore(initial?: string): ProgressStore & { items: Map<string, string> } {
@@ -79,5 +79,40 @@ describe('the stars kept in the browser', () => {
       'the-gate': 2,
       'the-scale': 2,
     });
+  });
+});
+
+describe('reaching the browser’s storage', () => {
+  /** Runs `check` with `globalThis.localStorage` read through `get`, then puts it back as it was. */
+  function withLocalStorage(get: () => unknown, check: () => void): void {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get });
+    try {
+      check();
+    } finally {
+      if (original === undefined) Reflect.deleteProperty(globalThis, 'localStorage');
+      else Object.defineProperty(globalThis, 'localStorage', original);
+    }
+  }
+
+  it('answers nothing, without throwing, where merely naming the storage throws', () => {
+    withLocalStorage(
+      () => {
+        throw new DOMException('blocked', 'SecurityError');
+      },
+      () => {
+        expect(browserStore()).toBeUndefined();
+      },
+    );
+  });
+
+  it('answers the browser’s storage where there is one', () => {
+    const store = nullStore();
+    withLocalStorage(
+      () => store,
+      () => {
+        expect(browserStore()).toBe(store);
+      },
+    );
   });
 });
