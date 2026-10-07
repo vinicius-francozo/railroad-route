@@ -90,6 +90,9 @@ _KEY_REJECTED = "The TypeSafe key was not accepted."
 _JEV_UNAVAILABLE = "Jev could not be reached. Try again in a moment."
 _JEV_UNUSABLE = "Jev answered with something the switches cannot read."
 _STORE_UNAVAILABLE = "The game's storage could not be reached. Try again in a moment."
+_UPSTASH_HALF_SET = (
+    "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set together, or neither."
+)
 
 
 def cache_id(level: Level) -> str:
@@ -139,16 +142,36 @@ def public_level(level: Level) -> dict[str, Any]:
     return level.model_dump(mode="json", exclude={"reference_solution"})
 
 
-def store_from_env(environ: Mapping[str, str], client: httpx.AsyncClient) -> Store:
-    """Upstash when both of its variables are set, memory otherwise.
+def _upstash_settings(environ: Mapping[str, str]) -> tuple[str, str] | None:
+    """The Upstash URL and token when both are set, None when neither is.
 
-    The memory store lives as long as one process. That is right for development; on a
-    serverless deploy each instance would keep its own quota, so a deploy sets both variables.
+    :raises ValueError: when only one of them is set (blank counts as unset). Falling back to
+        memory then would hide a deploy that meant to use Upstash and missed a variable. The
+        message names the variables and never their values.
     """
     url = environ.get("UPSTASH_REDIS_REST_URL", "").strip()
     token = environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
-    limits = QuotaLimits.from_env(environ)
     if url and token:
+        return url, token
+    if url or token:
+        raise ValueError(_UPSTASH_HALF_SET)
+    return None
+
+
+def store_from_env(environ: Mapping[str, str], client: httpx.AsyncClient) -> Store:
+    """Upstash when both of its variables are set, memory when neither is.
+
+    The memory store lives as long as one process. That is right for development, and only
+    for it: in production both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are
+    required, or every serverless instance keeps its own cache and its own quota, and the
+    daily limits hold per instance rather than for the deploy.
+
+    :raises ValueError: when only one of the two is set (see `_upstash_settings`).
+    """
+    settings = _upstash_settings(environ)
+    limits = QuotaLimits.from_env(environ)
+    if settings is not None:
+        url, token = settings
         return UpstashStore(url, token, client, limits=limits)
     return MemoryStore(limits=limits)
 
@@ -176,8 +199,13 @@ def create_app(
     the levels and the tuning are read once, here; the HTTP client and the store are opened by
     the lifespan, so one `httpx.AsyncClient` serves both Jev and Upstash for the app's life. A
     client passed in belongs to the caller, and is not closed.
+
+    :raises ValueError: when no store is passed and only one of Upstash's two variables is set,
+        here rather than in the lifespan, so a deploy missing one fails as it starts.
     """
     env: Mapping[str, str] = os.environ if environ is None else environ
+    if store is None:
+        _upstash_settings(env)
     all_levels = load_levels() if levels is None else levels
     the_tuning = load_tuning() if tuning is None else tuning
     own_key = (env.get("TYPESAFE_API_KEY", "") if server_key is None else server_key).strip()

@@ -788,15 +788,40 @@ def test_no_key_or_sentence_reaches_a_log(
 # --- Wiring from the environment --------------------------------------------------------------
 
 
-def test_the_store_is_upstash_only_when_both_variables_are_set() -> None:
+UPSTASH_HALF_SET = (
+    "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set together, or neither."
+)
+
+
+def test_the_store_is_upstash_with_both_variables_and_memory_with_neither() -> None:
     client = httpx.AsyncClient()
     both = {"UPSTASH_REDIS_REST_URL": "https://x.upstash.io", "UPSTASH_REDIS_REST_TOKEN": "t"}
 
     assert isinstance(store_from_env(both, client), UpstashStore)
-    assert isinstance(store_from_env({"UPSTASH_REDIS_REST_URL": "u"}, client), MemoryStore)
-    assert isinstance(
-        store_from_env({**both, "UPSTASH_REDIS_REST_TOKEN": " "}, client), MemoryStore
-    )
+    assert isinstance(store_from_env({}, client), MemoryStore)
+    blank = {"UPSTASH_REDIS_REST_URL": " ", "UPSTASH_REDIS_REST_TOKEN": "\n"}
+    assert isinstance(store_from_env(blank, client), MemoryStore)
+
+
+@pytest.mark.parametrize(
+    "environ",
+    [
+        {"UPSTASH_REDIS_REST_URL": "https://half-set.upstash.io"},
+        {"UPSTASH_REDIS_REST_TOKEN": "half-set-token"},
+        {"UPSTASH_REDIS_REST_URL": "https://half-set.upstash.io", "UPSTASH_REDIS_REST_TOKEN": " "},
+    ],
+)
+def test_one_upstash_variable_without_the_other_stops_the_app_from_starting(
+    environ: dict[str, str],
+) -> None:
+    with pytest.raises(ValueError) as from_env:
+        store_from_env(environ, httpx.AsyncClient())
+    with pytest.raises(ValueError) as from_create:
+        create_app(levels={"line": LEVEL}, tuning=TUNING, environ=environ)
+
+    for raised in (from_env, from_create):
+        assert str(raised.value) == UPSTASH_HALF_SET
+        assert "half-set" not in str(raised.value)
 
 
 def test_the_lifespan_shares_one_client_with_upstash_and_strips_its_token() -> None:
