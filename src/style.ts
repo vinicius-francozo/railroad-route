@@ -314,7 +314,7 @@ const SCENE = `
   background: radial-gradient(circle, rgba(240,138,44,.24) 0, rgba(240,138,44,.09) 38%, transparent 70%);
   animation: rr-flicker 2.4s steps(6) infinite; }
 @keyframes rr-flicker { 0%, 100% { opacity: 1; } 30% { opacity: .82; } 55% { opacity: .95; } 80% { opacity: .78; } }
-.rr-plaque .rr-plaque-chain { position: absolute; top: -42px; }
+.rr-plaque .rr-plaque-chain { position: absolute; top: -42px; pointer-events: none; }
 
 .rr-hall .rr-prop { position: absolute; z-index: 0; pointer-events: none; width: auto; }
 .rr-hall .rr-vein { height: clamp(24px, 4.4vh, 48px); }
