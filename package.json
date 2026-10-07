@@ -1,0 +1,20 @@
+{
+  "name": "railroad-route",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A mine-cart track puzzle where Jev reads the cart's sentence and throws the switches.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}
