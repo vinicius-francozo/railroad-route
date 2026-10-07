@@ -1,0 +1,66 @@
+{
+  "id": "the-gate",
+  "name": "The Gate",
+  "order": 3,
+  "width": 9,
+  "height": 6,
+  "cells": [
+    {"x": 5, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 3, "y": 1, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 5, "y": 1, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 2, "kind": "curve", "rotation": 3, "mode": "rotatable"},
+    {"x": 2, "y": 2, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 4, "y": 2, "kind": "straight", "rotation": 0, "mode": "rotatable"},
+    {"x": 6, "y": 2, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 3, "y": 3, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 5, "y": 3, "kind": "tunnel", "rotation": 1, "mode": "fixed"},
+    {"x": 7, "y": 3, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 0, "y": 4, "kind": "start", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 4, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 5, "y": 4, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 6, "y": 4, "kind": "curve", "rotation": 2, "mode": "rotatable"},
+    {"x": 8, "y": 4, "kind": "mine", "rotation": 0, "mode": "fixed"},
+    {"x": 5, "y": 5, "kind": "rock", "rotation": 0, "mode": "fixed"}
+  ],
+  "switches": [
+    {
+      "id": "danger",
+      "x": 5,
+      "y": 2,
+      "entry": "W",
+      "question": {
+        "type": "noul",
+        "instructions": "Is the cargo dangerous?",
+        "criteria": {
+          "true": "The cargo is hazardous: explosives, gunpowder, dynamite, toxic or volatile chemicals",
+          "false": "The cargo is harmless: nothing in it can explode or hurt anyone"
+        }
+      },
+      "exits": {
+        "yes": "E",
+        "no": "S"
+      },
+      "threshold": 0.5
+    }
+  ],
+  "inventory": {"straight": 4, "curve": 1, "cross": 0},
+  "taboo": ["dynamite", "dinamit", "explosiv", "explos", "explod", "gunpowder", "pólvora", "powder", "bomb", "bomba", "tnt", "danger", "perig", "hazard", "toxic", "tóxic", "blast", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "bottom", "left", "right", "yes", "ignor", "criteri", "true", "false", "verdad", "fals", "zero", "two", "three", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "dois", "três", "tres", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "max_words": 10,
+  "par_pieces": 4,
+  "reference_solution": {
+    "sentence": "Nitroglycerin sticks with long fuses to crack the rock",
+    "rotations": [
+      {"x": 1, "y": 2, "rotation": 1},
+      {"x": 4, "y": 2, "rotation": 1},
+      {"x": 6, "y": 2, "rotation": 2},
+      {"x": 1, "y": 4, "rotation": 3},
+      {"x": 6, "y": 4, "rotation": 0}
+    ],
+    "placements": [
+      {"x": 3, "y": 2, "kind": "straight", "rotation": 1},
+      {"x": 1, "y": 3, "kind": "straight", "rotation": 0},
+      {"x": 6, "y": 3, "kind": "straight", "rotation": 0},
+      {"x": 7, "y": 4, "kind": "straight", "rotation": 1}
+    ]
+  }
+}

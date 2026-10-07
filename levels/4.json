@@ -1,0 +1,82 @@
+{
+  "id": "the-scale",
+  "name": "The Scale",
+  "order": 4,
+  "width": 10,
+  "height": 6,
+  "cells": [
+    {"x": 4, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 5, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 6, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 7, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 8, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 9, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 1, "kind": "curve", "rotation": 2, "mode": "rotatable"},
+    {"x": 2, "y": 1, "kind": "curve", "rotation": 1, "mode": "rotatable"},
+    {"x": 4, "y": 1, "kind": "curve", "rotation": 1, "mode": "fixed"},
+    {"x": 5, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 6, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 7, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 8, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 9, "y": 1, "kind": "tunnel", "rotation": 0, "mode": "fixed"},
+    {"x": 0, "y": 2, "kind": "start", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 2, "kind": "cross", "rotation": 0, "mode": "fixed"},
+    {"x": 2, "y": 2, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 5, "y": 2, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 6, "y": 2, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 7, "y": 2, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 3, "kind": "curve", "rotation": 1, "mode": "rotatable"},
+    {"x": 3, "y": 3, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 4, "y": 3, "kind": "tunnel", "rotation": 1, "mode": "fixed"},
+    {"x": 7, "y": 3, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 4, "y": 4, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 6, "y": 4, "kind": "curve", "rotation": 2, "mode": "rotatable"},
+    {"x": 9, "y": 4, "kind": "mine", "rotation": 0, "mode": "fixed"},
+    {"x": 4, "y": 5, "kind": "rock", "rotation": 0, "mode": "fixed"}
+  ],
+  "switches": [
+    {
+      "id": "urgency",
+      "x": 4,
+      "y": 2,
+      "entry": "W",
+      "question": {
+        "type": "score",
+        "instructions": "How urgent is the delivery?",
+        "criteria": [
+          "Calm: no hurry at all, the delivery can wait",
+          "Normal: an ordinary delivery at the usual pace",
+          "Rush: extremely urgent, it must arrive immediately"
+        ]
+      },
+      "exits": {
+        "0": "S",
+        "1": "N",
+        "2": "E"
+      }
+    }
+  ],
+  "inventory": {"straight": 4, "curve": 1, "cross": 0},
+  "taboo": ["urgen", "hurry", "fast", "quick", "pressa", "rápid", "rush", "asap", "now", "immediat", "imediat", "emergenc", "instant", "agora", "corre", "voand", "ontem", "second", "wait", "esper", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "third", "last", "middle", "bottom", "left", "right", "yes", "ignor", "criteri", "true", "false", "verdad", "fals", "zero", "two", "three", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "dois", "três", "tres", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "max_words": 10,
+  "par_pieces": 5,
+  "reference_solution": {
+    "sentence": "The miners are trapped and running out of air",
+    "rotations": [
+      {"x": 1, "y": 1, "rotation": 1},
+      {"x": 2, "y": 1, "rotation": 2},
+      {"x": 2, "y": 2, "rotation": 3},
+      {"x": 6, "y": 2, "rotation": 2},
+      {"x": 1, "y": 3, "rotation": 0},
+      {"x": 3, "y": 3, "rotation": 3},
+      {"x": 6, "y": 4, "rotation": 0}
+    ],
+    "placements": [
+      {"x": 3, "y": 2, "kind": "curve", "rotation": 1},
+      {"x": 2, "y": 3, "kind": "straight", "rotation": 1},
+      {"x": 6, "y": 3, "kind": "straight", "rotation": 0},
+      {"x": 7, "y": 4, "kind": "straight", "rotation": 1},
+      {"x": 8, "y": 4, "kind": "straight", "rotation": 1}
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "choice_min_confidence": 0.8,
-  "noul_margin": 0.15,
+  "choice_min_confidence": 0.85,
+  "noul_margin": 0.25,
   "score_margin": 0.25
 }

@@ -1,0 +1,16 @@
+{
+  "cargo": {
+    "type": "choice",
+    "choice": "coal",
+    "confidence": 0.97
+  },
+  "danger": {
+    "type": "noul",
+    "noul": 0.2
+  },
+  "urgency": {
+    "type": "score",
+    "score": 0.13,
+    "confidence": 0.79
+  }
+}

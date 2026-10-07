@@ -1,0 +1,118 @@
+{
+  "id": "grand-junction",
+  "name": "Grand Junction",
+  "order": 5,
+  "width": 10,
+  "height": 6,
+  "cells": [
+    {"x": 2, "y": 0, "kind": "tunnel", "rotation": 3, "mode": "fixed"},
+    {"x": 5, "y": 0, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 8, "y": 0, "kind": "tunnel", "rotation": 3, "mode": "fixed"},
+    {"x": 0, "y": 1, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 3, "y": 1, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 5, "y": 1, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 6, "y": 1, "kind": "curve", "rotation": 2, "mode": "rotatable"},
+    {"x": 9, "y": 1, "kind": "curve", "rotation": 2, "mode": "fixed"},
+    {"x": 0, "y": 2, "kind": "straight", "rotation": 0, "mode": "fixed"},
+    {"x": 2, "y": 2, "kind": "tunnel", "rotation": 1, "mode": "fixed"},
+    {"x": 5, "y": 2, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 6, "y": 2, "kind": "straight", "rotation": 0, "mode": "fixed"},
+    {"x": 8, "y": 2, "kind": "tunnel", "rotation": 1, "mode": "fixed"},
+    {"x": 9, "y": 2, "kind": "straight", "rotation": 0, "mode": "fixed"},
+    {"x": 0, "y": 3, "kind": "straight", "rotation": 0, "mode": "fixed"},
+    {"x": 2, "y": 3, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 3, "y": 3, "kind": "straight", "rotation": 0, "mode": "fixed"},
+    {"x": 5, "y": 3, "kind": "tunnel", "rotation": 3, "mode": "fixed"},
+    {"x": 6, "y": 3, "kind": "straight", "rotation": 0, "mode": "fixed"},
+    {"x": 8, "y": 3, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 9, "y": 3, "kind": "mine", "rotation": 1, "mode": "fixed"},
+    {"x": 0, "y": 4, "kind": "start", "rotation": 3, "mode": "fixed"},
+    {"x": 2, "y": 4, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 3, "y": 4, "kind": "curve", "rotation": 2, "mode": "rotatable"},
+    {"x": 8, "y": 4, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 2, "y": 5, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 5, "y": 5, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 8, "y": 5, "kind": "rock", "rotation": 0, "mode": "fixed"}
+  ],
+  "switches": [
+    {
+      "id": "cargo",
+      "x": 2,
+      "y": 1,
+      "entry": "W",
+      "question": {
+        "type": "choice",
+        "instructions": "What does the cart carry?",
+        "criteria": {
+          "coal": "Coal",
+          "gold": "Gold",
+          "crystal": "Crystals and gemstones"
+        }
+      },
+      "exits": {
+        "coal": "E",
+        "gold": "N",
+        "crystal": "S"
+      }
+    },
+    {
+      "id": "danger",
+      "x": 5,
+      "y": 4,
+      "entry": "W",
+      "question": {
+        "type": "noul",
+        "instructions": "Is the cargo dangerous?",
+        "criteria": {
+          "true": "The cargo is hazardous: explosives, gunpowder, dynamite, toxic or volatile chemicals",
+          "false": "The cargo is harmless: nothing in it can explode or hurt anyone"
+        }
+      },
+      "exits": {
+        "yes": "N",
+        "no": "E"
+      },
+      "threshold": 0.5
+    },
+    {
+      "id": "urgency",
+      "x": 8,
+      "y": 1,
+      "entry": "W",
+      "question": {
+        "type": "score",
+        "instructions": "How urgent is the delivery?",
+        "criteria": [
+          "Calm: no hurry at all, the delivery can wait",
+          "Normal: an ordinary delivery at the usual pace",
+          "Rush: extremely urgent, it must arrive immediately"
+        ]
+      },
+      "exits": {
+        "0": "E",
+        "1": "N",
+        "2": "S"
+      }
+    }
+  ],
+  "inventory": {"straight": 4, "curve": 2, "cross": 0},
+  "taboo": ["coal", "carvão", "black", "preto", "slow", "calm", "devagar", "tranquil", "rush", "hurry", "pressa", "urgen", "leisur", "whenever", "relax", "wait", "esper", "sosseg", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "bottom", "left", "right", "yes", "ignor", "criteri", "true", "false", "verdad", "fals", "zero", "two", "three", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "dois", "três", "tres", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "max_words": 8,
+  "par_pieces": 5,
+  "reference_solution": {
+    "sentence": "Harmless stove fuel; the mine reopens next spring",
+    "rotations": [
+      {"x": 0, "y": 1, "rotation": 1},
+      {"x": 3, "y": 1, "rotation": 2},
+      {"x": 6, "y": 1, "rotation": 1},
+      {"x": 3, "y": 4, "rotation": 0}
+    ],
+    "placements": [
+      {"x": 1, "y": 1, "kind": "straight", "rotation": 1},
+      {"x": 7, "y": 1, "kind": "straight", "rotation": 1},
+      {"x": 3, "y": 2, "kind": "straight", "rotation": 0},
+      {"x": 4, "y": 4, "kind": "straight", "rotation": 1},
+      {"x": 6, "y": 4, "kind": "curve", "rotation": 3}
+    ]
+  }
+}

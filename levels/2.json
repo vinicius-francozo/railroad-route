@@ -1,0 +1,60 @@
+{
+  "id": "forbidden-words",
+  "name": "Forbidden Words",
+  "order": 2,
+  "width": 9,
+  "height": 5,
+  "cells": [
+    {"x": 4, "y": 0, "kind": "tunnel", "rotation": 3, "mode": "fixed"},
+    {"x": 0, "y": 1, "kind": "start", "rotation": 0, "mode": "fixed"},
+    {"x": 1, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 2, "y": 1, "kind": "straight", "rotation": 0, "mode": "rotatable"},
+    {"x": 5, "y": 1, "kind": "straight", "rotation": 1, "mode": "fixed"},
+    {"x": 6, "y": 1, "kind": "curve", "rotation": 0, "mode": "rotatable"},
+    {"x": 4, "y": 2, "kind": "tunnel", "rotation": 1, "mode": "fixed"},
+    {"x": 7, "y": 2, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 4, "y": 3, "kind": "rock", "rotation": 0, "mode": "fixed"},
+    {"x": 6, "y": 3, "kind": "curve", "rotation": 2, "mode": "rotatable"},
+    {"x": 8, "y": 3, "kind": "mine", "rotation": 0, "mode": "fixed"},
+    {"x": 4, "y": 4, "kind": "rock", "rotation": 0, "mode": "fixed"}
+  ],
+  "switches": [
+    {
+      "id": "cargo",
+      "x": 4,
+      "y": 1,
+      "entry": "W",
+      "question": {
+        "type": "choice",
+        "instructions": "What does the cart carry?",
+        "criteria": {
+          "coal": "Coal",
+          "gold": "Gold",
+          "crystal": "Crystals and gemstones"
+        }
+      },
+      "exits": {
+        "coal": "N",
+        "gold": "E",
+        "crystal": "S"
+      }
+    }
+  ],
+  "inventory": {"straight": 3, "curve": 1, "cross": 0},
+  "taboo": ["gold", "golden", "yellow", "ouro", "dourad", "amarel", "option", "choice", "choos", "pick", "select", "answer", "exit", "first", "second", "third", "last", "middle", "bottom", "left", "right", "yes", "ignor", "criteri", "true", "false", "verdad", "fals", "zero", "two", "three", "opç", "escolh", "selecion", "respond", "respost", "saída", "primeir", "segund", "terceir", "últim", "meio", "esquerd", "direit", "sim", "dois", "três", "tres", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+  "max_words": 10,
+  "par_pieces": 3,
+  "reference_solution": {
+    "sentence": "Pepitas brilhantes que o garimpeiro pesa na balança",
+    "rotations": [
+      {"x": 2, "y": 1, "rotation": 1},
+      {"x": 6, "y": 1, "rotation": 2},
+      {"x": 6, "y": 3, "rotation": 0}
+    ],
+    "placements": [
+      {"x": 3, "y": 1, "kind": "straight", "rotation": 1},
+      {"x": 6, "y": 2, "kind": "straight", "rotation": 0},
+      {"x": 7, "y": 3, "kind": "straight", "rotation": 1}
+    ]
+  }
+}
