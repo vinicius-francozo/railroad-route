@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { exitMarkNames } from './art';
+import { BALLAST, exitMarkNames, METER_PAL, meterRows, ORE_MARKS, PAL } from './art';
 import type { Reading, Switch } from './contract';
 import {
   describeOutcome,
@@ -130,6 +130,41 @@ describe('the mark at the end of each branch', () => {
     }
     expect(exitLines(choice(['coal', 'gold'])).map((line) => line.mark)).toEqual(['coal', 'gold']);
   });
+});
+
+describe('the exit marks, as they are drawn', () => {
+  /** WCAG 2's contrast ratio of two `#rrggbb` colours. */
+  const contrast = (a: string, b: string): number => {
+    const luminance = (hex: string): number => {
+      const [r, g, b2] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b2 ?? 0);
+    };
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+  };
+
+  it('gives coal a lit edge that stands out from the dark ballast, a graphic’s 3:1 at least', () => {
+    const rows = ORE_MARKS['coal'] ?? [];
+    // The outermost painted pixel of each row, from the left: the edge the lamp catches.
+    const edge = rows.map((row) => row.replace(/^\.+/, '')[0] ?? '.');
+    const lit = edge.filter((ch) => ch !== 'k').map((ch) => PAL[ch] ?? '#000000');
+    expect(lit.length).toBeGreaterThanOrEqual(3);
+    for (const colour of lit) expect(contrast(colour, BALLAST), colour).toBeGreaterThanOrEqual(3);
+  });
+
+  for (const levels of [2, 3, 4]) {
+    it(`tells the ${String(levels)} levels of a scale apart by colour and by the count of lit bars`, () => {
+      const lit = Array.from({ length: levels }, (_, level) => {
+        const pixels = meterRows(level, levels).join('').split('').filter((ch) => ch in METER_PAL);
+        return { colours: new Set(pixels), bars: pixels.length };
+      });
+      for (const { colours } of lit) expect(colours.size).toBe(1);
+      expect(new Set(lit.map(({ colours }) => [...colours][0])).size).toBe(levels);
+      expect(new Set(lit.map(({ bars }) => bars)).size).toBe(levels);
+      // Every lit colour reads on the meter's dark face.
+      for (const { colours } of lit) expect(contrast(METER_PAL[[...colours][0] ?? ''] ?? '#000000', PAL['x'] ?? '#000000')).toBeGreaterThanOrEqual(3);
+    });
+  }
 });
 
 describe('the forbidden words, as the player reads them', () => {

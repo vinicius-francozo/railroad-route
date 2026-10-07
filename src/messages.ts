@@ -174,8 +174,10 @@ export function sideWord(side: Side): string {
  * - a choice's option that is a cargo of the game (`coal`, `gold`, `crystal`)
  *   is that ore; any other option gets a coloured pip, by its place among the
  *   options, so two options never share one;
- * - the gate's answers are `yes` and `no`, a tick and a cross;
- * - a level of a scale is a meter lit up to that level (`level-<level>-<levels>`).
+ * - the gate's answers are `yes` and `no`: a green chip with a lit lamp in
+ *   it, and a red "no entry" chip with a bar across it;
+ * - a level of a scale is a meter lit up to that level, green at the bottom of
+ *   the scale to red at the top (`level-<level>-<levels>`).
  *
  * An answer the switch does not have gets no picture, `undefined`, and so do
  * the options of a choice with more than four that are not cargo, and the

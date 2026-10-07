@@ -364,6 +364,9 @@ function rockTile(): Sprite {
   });
 }
 
+/** The dark ballast a switch's rails lie on, which every exit mark is read against. */
+export const BALLAST = '#3a2b1f';
+
 /** The gravel under every cell, the same on every load. */
 function groundTile(): Sprite {
   const cv = canvas(16, 16);
@@ -393,7 +396,7 @@ function junctionTile(entry: Side, exits: readonly Side[], rail: Tones = RAIL, b
     const { runs, arcs } = laid(entry, exits);
     if (bed) {
       P(0, 0, 16, 16, '#120d09');
-      P(1, 1, 14, 14, '#3a2b1f');
+      P(1, 1, 14, 14, BALLAST);
       P(1, 1, 14, 1, '#4d3a2a');
       P(1, 1, 1, 14, '#4d3a2a');
       P(2, 14, 13, 1, '#2a1f16');
@@ -415,9 +418,13 @@ function junctionTile(entry: Side, exits: readonly Side[], rail: Tones = RAIL, b
 // sits between the two rails and covers only their inner pixel: the track is
 // still seen running to the edge on both sides of it.
 
-/** Rows for `fromRows`: an ore, as a lump on the end of a branch. */
-const ORE_MARKS: Readonly<Record<string, readonly string[]>> = {
-  coal: ['..kkk.', '.kAAak', 'kAaaak', 'kaaaQk', 'kaQQQk', '.kkkk.'],
+/**
+ * Rows for `fromRows`: an ore, as a lump on the end of a branch. Coal is a
+ * black lump whose top-left edge and one facet catch the lamp light: outlined
+ * in black only, as the others are, it sank into the dark ballast.
+ */
+export const ORE_MARKS: Readonly<Record<string, readonly string[]>> = {
+  coal: ['..SIk.', '.SyIak', 'SIaQQk', 'IaQxQk', 'kQxxxk', '.kkkk.'],
   gold: ['.kkk..', 'kGGgk.', 'kGggok', 'kgggok', '.kgook', '..kkk.'],
   crystal: ['..kk..', '.kJjk.', 'kJjjlk', 'kjjjlk', '.kjlk.', '..kk..'],
 };
@@ -445,23 +452,34 @@ const PIP_COLOURS: readonly (readonly [string, string])[] = [
 export const METER_MAX = 4;
 
 /**
- * Level `level` of a scale of `levels`: an iron chip with a rising staircase
- * of bars, lit up to and including that level. "Calm" lights the short bar,
- * "rush" all of them.
+ * The colours a meter lights its bars in, by how far up the scale its level
+ * is: green at the bottom, amber, then red at the top. Digits, so they never
+ * clash with a letter of `PAL`.
  */
-function meterMark(level: number, levels: number): Sprite {
-  const cv = canvas(6, 6);
-  const P = pen(context(cv));
-  P(0, 0, 6, 6, 'k');
-  P(1, 1, 4, 4, 'I');
+export const METER_PAL: Readonly<Record<string, string>> = { '1': '#5fd35a', '2': '#ffc83d', '3': '#ff8a3c', '4': '#ff5a3c' };
+
+/** Which `METER_PAL` colour each level of a scale of 2, 3 or 4 levels lights. */
+const METER_COLOURS: Readonly<Record<number, readonly string[]>> = { 2: ['1', '4'], 3: ['1', '2', '4'], 4: ['1', '2', '3', '4'] };
+
+/**
+ * Level `level` of a scale of `levels`, as rows for `fromRows` with
+ * `METER_PAL`: a dark chip in an iron frame with a rising staircase of bars,
+ * lit up to and including that level, in that level's colour. "Calm" lights
+ * the short bar green, "rush" every bar red: told apart by colour at a glance,
+ * and by the count of bars without colour.
+ */
+export function meterRows(level: number, levels: number): string[] {
+  const rows = ['IIIIIi', 'Ixxxxi', 'Ixxxxi', 'Ixxxxi', 'Ixxxxi', 'Iiiiii'].map((row) => [...row]);
+  const lit = METER_COLOURS[levels]?.[level] ?? 'F';
   for (let bar = 0; bar < levels; bar++) {
     const x = 5 - levels + bar;
     const height = 4 - (levels - 1 - bar);
-    const lit = bar <= level;
-    P(x, 5 - height, 1, height, lit ? 'F' : 'd');
-    if (lit) P(x, 5 - height, 1, 1, 'y');
+    for (let y = 5 - height; y < 5; y++) {
+      const row = rows[y];
+      if (row !== undefined) row[x] = bar <= level ? lit : 'd';
+    }
   }
-  return cv;
+  return rows.map((row) => row.join(''));
 }
 
 function pipMark(index: number): Sprite {
@@ -477,7 +495,7 @@ function exitMarkSprites(): Record<string, Sprite> {
   const marks: Record<string, Sprite> = {};
   for (const [name, rows] of Object.entries({ ...ORE_MARKS, ...ANSWER_MARKS })) marks[name] = fromRows(rows);
   for (let levels = 2; levels <= METER_MAX; levels++) {
-    for (let level = 0; level < levels; level++) marks[`level-${String(level)}-${String(levels)}`] = meterMark(level, levels);
+    for (let level = 0; level < levels; level++) marks[`level-${String(level)}-${String(levels)}`] = fromRows(meterRows(level, levels), METER_PAL);
   }
   PIP_COLOURS.forEach((_, index) => {
     marks[`pip-${String(index)}`] = pipMark(index);
