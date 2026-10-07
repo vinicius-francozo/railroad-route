@@ -586,6 +586,9 @@ export function mountApp(root: HTMLElement, overrides: Partial<AppServices>): vo
     levelNote.textContent = levelRules(level.max_words, level.par_pieces);
     taboo.textContent = tabooLine(level.taboo);
     empty.hidden = true;
+    // The last run belongs to the board it ran on: its cart, trail, readings
+    // and failure do not come along to a new level.
+    clearRun();
     buildBoard(level);
     buildSwitches(level);
     readingsBefore();

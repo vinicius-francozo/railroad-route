@@ -760,6 +760,22 @@ describe('sending the cart', () => {
     expect(app.cell(0, 1).attributes.has('data-trail')).toBe(false);
   });
 
+  it('leaves the last run behind when another level is picked', async () => {
+    const run: RunResponse = { ...ARRIVED, outcome: 'derailed', readings: [], stars: 0, path: ARRIVED.path.slice(0, 2) };
+    const app = await ready({ runs: [{ status: 200, body: run }] });
+    app.send.click();
+    await settle();
+    expect(app.cart.attributes.get('data-end')).toBe('derailed');
+
+    app.picker.value = 'the-gate';
+    app.picker.fire('change');
+    expect(app.cart.hidden).toBe(true);
+    expect(app.cart.attributes.has('data-end')).toBe(false);
+    expect(app.cell(1, 1).attributes.has('data-trail')).toBe(false);
+    expect(shownText(app.readings)).not.toContain('☆');
+    expect(shownText(app.readings)).toContain(UI_TEXT.readingsBefore);
+  });
+
   it('holds every control while the cart is out, and ignores a second click', async () => {
     const app = await ready({ runs: ['hang'] });
     app.send.click();
